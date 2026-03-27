@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: OpenEnv clinical trial simulation with graded multi-task environment
+short_description: OpenEnv clinical trial simulation
 ---
 
 # Clinical Trial Triage - OpenEnv

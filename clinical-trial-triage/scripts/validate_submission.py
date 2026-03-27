@@ -5,7 +5,7 @@ Checks:
 1. Core endpoints respond and return expected shapes.
 2. /tasks returns >= 3 tasks.
 3. Each task can be completed and /grader returns score in [0.0, 1.0].
-4. Baseline script runs without errors and produces outputs/baseline_results.json.
+4. Root inference script runs without errors and produces outputs/baseline_results.json.
 
 Usage:
     python scripts/validate_submission.py
@@ -41,6 +41,7 @@ from tasks.case_bank import AE_CASES, DEVIATION_CASES, NARRATIVE_CASES
 
 BASE_URL = os.environ.get("VALIDATOR_BASE_URL", "http://localhost:8000").rstrip("/")
 OUTPUT_FILE = ROOT / "outputs" / "baseline_results.json"
+INFERENCE_TIMEOUT_SECONDS = 20 * 60
 
 
 def _assert(condition: bool, message: str) -> None:
@@ -126,9 +127,22 @@ def _check_openenv_endpoints(client: httpx.Client) -> None:
 
 
 def _run_baseline_script() -> Dict[str, Any]:
-    cmd = [sys.executable, str(ROOT / "scripts" / "baseline_inference.py")]
-    process = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
-    _assert(process.returncode == 0, f"baseline_inference.py failed:\n{process.stderr}\n{process.stdout}")
+    cmd = [sys.executable, str(ROOT / "inference.py")]
+    try:
+        process = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=INFERENCE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(
+            f"inference.py exceeded runtime budget ({INFERENCE_TIMEOUT_SECONDS}s). "
+            "Submission requires completion under 20 minutes."
+        ) from exc
+
+    _assert(process.returncode == 0, f"inference.py failed:\n{process.stderr}\n{process.stdout}")
     _assert(OUTPUT_FILE.exists(), f"Missing baseline output file: {OUTPUT_FILE}")
 
     with open(OUTPUT_FILE, "r", encoding="utf-8") as file:
@@ -136,6 +150,7 @@ def _run_baseline_script() -> Dict[str, Any]:
 
     tasks = data.get("tasks", {})
     _assert(len(tasks) >= 3, "Baseline output does not contain all 3 tasks")
+    _assert("mean_score" in data, "Baseline output missing mean_score")
     _assert("overall_mean_reward" in data, "Baseline output missing overall_mean_reward")
     return data
 

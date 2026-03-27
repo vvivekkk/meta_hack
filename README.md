@@ -1,11 +1,12 @@
 ---
 title: Meta Hack
-emoji: 📚
-colorFrom: purple
-colorTo: purple
+emoji: stethoscope
+colorFrom: teal
+colorTo: indigo
 sdk: docker
 pinned: false
-short_description: project on RL using OPENENV
+short_description: FastAPI Docker Space starter for OpenEnv submissions
+app_port: 7860
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+Minimal FastAPI app deployed via Docker on Hugging Face Spaces.

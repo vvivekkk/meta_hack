@@ -5,7 +5,7 @@ A production-style OpenEnv environment for clinical operations automation.
 This repository simulates three high-impact trial operations tasks and provides:
 - A typed FastAPI/OpenEnv runtime
 - Deterministic graders and dense rewards
-- A policy-search baseline (`inference.py`)
+- A fail-safe baseline (`inference.py`)
 - A Groq-based baseline (`scripts/baseline_inference.py`)
 - PPO RL training/evaluation stack
 - A submission validator (`scripts/validate_submission.py`)
@@ -43,11 +43,11 @@ The environment is intentionally multi-modal:
 ## 2) Current Project Status (as implemented)
 
 As of the latest local run:
-- `inference.py` baseline mean score: **0.8856**
+- `inference.py` fallback-mode mean score (no API): **0.8729**
 - Per-task:
   - `adverse_event_triage`: **0.8400**
   - `protocol_deviation_audit`: **0.9567**
-  - `safety_narrative_generation`: **0.8600**
+  - `safety_narrative_generation`: **0.8320**
 - Output file: `outputs/baseline_results.json`
 
 Validator status:
@@ -200,22 +200,20 @@ Shaping logic includes:
 - anti-gaming severity penalty on suspicious inflation
 - anti-loop penalty for repeated identical actions
 
-## 6.3 Inference Baseline Search (`inference.py`)
+## 6.3 Inference Baseline (`inference.py`)
 
-`inference.py` runs **best-of policy rollouts** per task:
-- `heuristic`
-- `hybrid` (LLM + guardrails)
-- `llm` (LLM with guardrails/fallback)
+`inference.py` now uses a **single-path fail-safe strategy** per case:
+1. Try exactly one LLM call (`safe_llm_call`) using OpenAI SDK + HF router variables.
+2. If the call fails or returns invalid JSON, immediately use deterministic heuristic fallback.
+3. Continue episode execution without crashing.
 
-Then selects the highest scoring policy per task and writes combined results.
+Reliability guarantees:
+- no multi-policy search
+- no retry loops that can stall execution
+- deterministic fallback for all tasks
+- output is always written, even when API access is unavailable
 
-Guardrail logic:
-- Enum/domain correction
-- field clipping/sanitization
-- payload fallback to heuristics when parse/provider fails
-- AE-specific GI/liver correction to avoid common mis-coding
-
-This is why `inference.py` can stay strong even when external LLM calls fail.
+This design keeps compliance support for OpenAI/HF variables while making baseline execution reproducible and robust.
 
 ## 6.4 RL Pipeline (`rl/*`)
 
@@ -234,8 +232,8 @@ Two different LLM paths exist in this repo.
 ### Path A: `inference.py` (HF Router via OpenAI SDK)
 
 Used for:
-- policy-search baseline (`llm` and `hybrid` policies)
-- generating candidate actions from observation text
+- optional single-attempt candidate action generation per case
+- immediate deterministic fallback if LLM is unavailable or invalid
 
 Environment variables:
 - `API_BASE_URL` (default `https://router.huggingface.co/v1`)
@@ -262,7 +260,7 @@ Client:
 
 | Script | Provider path | Default model | Key env var(s) | Purpose |
 |---|---|---|---|---|
-| `inference.py` | HF router (OpenAI SDK) | `meta-llama/Llama-3.3-70B-Instruct` | `HF_TOKEN` | Best-of policy-search baseline |
+| `inference.py` | HF router (OpenAI SDK) | `meta-llama/Llama-3.3-70B-Instruct` | `HF_TOKEN` | Fail-safe baseline (single LLM attempt + deterministic fallback) |
 | `scripts/baseline_inference.py` | Groq SDK | `llama-3.3-70b-versatile` | `GROQ_API_KEY(S)` | Groq baseline and validator baseline check |
 
 ---
@@ -281,18 +279,14 @@ Important detail:
 - Validator executes `scripts/baseline_inference.py`.
 - It expects `overall_mean_reward` in output JSON.
 
-This means there are **two valid baseline outputs** depending on what you run last:
-
-1. If you run `inference.py` last:
-- output schema includes `mean_score`, `search_mode`, `selected_policy`
-
-2. If you run validator (or `scripts/baseline_inference.py`) last:
-- output schema includes `overall_mean_reward`
+Compatibility note:
+- `inference.py` now writes both `mean_score` and `overall_mean_reward` with identical values.
+- This avoids downstream schema mismatch for score readers.
 
 Recommended submission run order:
 1. Start server
-2. Run validator
-3. If competition expects your policy-search artifact format, run `inference.py` after validator
+2. Run `python inference.py`
+3. Run `python scripts/validate_submission.py`
 
 ---
 
@@ -329,8 +323,8 @@ Clear interpretation:
 - now includes `session_id` support and `X-Session-ID` header propagation
 
 - `inference.py`
-- primary baseline for this repo's optimized scoring path
-- best-of rollout search across policies
+- primary fail-safe baseline for this repo
+- one LLM attempt per case, deterministic fallback on any failure
 - writes `outputs/baseline_results.json`
 
 - `openenv.yaml`
@@ -499,7 +493,7 @@ Practical interpretation:
 
 1. Verify server health and no stale session collisions.
 2. Ensure correct model/provider env vars are set for the script you are running.
-3. Re-run `inference.py`; it already does policy search and picks best task policy.
+3. Re-run `inference.py`; it is deterministic and fail-safe by design.
 4. If `402` appears in `inference.py`, add HF provider credits or use a valid paid route.
 5. Validate with `scripts/validate_submission.py` to ensure compliance.
 
@@ -507,7 +501,8 @@ Practical interpretation:
 
 ## 16) Known Caveats
 
-- `inference.py` and `scripts/baseline_inference.py` produce different JSON top-level score keys (`mean_score` vs `overall_mean_reward`).
+- `scripts/baseline_inference.py` is still the validator-invoked baseline path.
+- `inference.py` now includes both `mean_score` and `overall_mean_reward` for compatibility.
 - Both scripts write to the same file path (`outputs/baseline_results.json`), so run order matters for artifact format.
 - OpenEnv mount is serialized for continuity safety in current implementation.
 

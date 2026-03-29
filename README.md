@@ -1,3 +1,13 @@
+---
+title: Meta Hack Clinical Trial Triage
+emoji: "🧪"
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Clinical Trial Triage - OpenEnv
 
 A production-style OpenEnv environment for clinical operations automation.

@@ -1,0 +1,82 @@
+Clinical Trial Triage - Test Inputs Reference
+
+How to use
+1) Open /ui/triage.html
+2) Select one protocol at a time
+3) Fill the values below exactly
+4) Click RUN TRIAGE
+
+==================================================
+A) ADVERSE EVENT TRIAGE (AE) - Serious/Life-threatening test
+==================================================
+Protocol: Adverse Event Triage
+
+Patient ID: PX-0201-A
+Subject Age: 62
+Drug Name / Compound ID: CTT-292
+Event Description:
+Patient developed acute chest pain and shortness of breath 2 hours after dose.
+ECG showed STEMI and elevated troponin. Subject required emergency hospitalization.
+Time Since Event: < 24 Hours
+Pre-Conditions: Hypertension, Diabetes
+
+Expected pattern in result:
+- Severity should trend to LIFE THREATENING (or severe category)
+- MedDRA should map to a cardiac term
+- Is Serious should be YES
+- Reporting timeline should be immediate/expedited
+
+
+==================================================
+B) PROTOCOL DEVIATION AUDIT (PD) - Major deviation test
+==================================================
+Protocol: Protocol Deviation Audit
+
+Site ID: SITE-042
+Trial Phase: Phase III
+Deviation Description:
+Eligibility criteria were not met, but subject was enrolled and dosed.
+Informed consent version control was incorrect at dosing visit.
+Potential data integrity risk identified. FIND-101 and FIND-220 noted.
+Subjects Affected: 3
+Date of Deviation: 2026-03-25
+IRB Notified?: NO
+
+Expected pattern in result:
+- Deviation should trend to MAJOR
+- CAPA should be required
+- Risk score should be high (closer to upper range)
+- Flagged findings should include F101/F220 style tags
+
+
+==================================================
+C) SAFETY NARRATIVE (SN) - Causality and narrative test
+==================================================
+Protocol: Safety Narrative
+
+Patient ID: PX-0005-C
+Drug / Dose: CTT-292 / 50mg
+Indication: Metastatic solid tumor
+Event Timeline:
+Dose started on Day 1. By Day 3, patient developed grade 3 rash with fever shortly after dose.
+Drug was interrupted, supportive treatment started, symptoms improved over 48 hours.
+Outcome: Recovering
+Dechallenge Performed?: YES
+Rechallenge Performed?: NO
+
+Expected pattern in result:
+- Causality should trend to PROBABLY RELATED or POSSIBLY RELATED
+- Temporal flags should be present
+- Dechallenge/Rechallenge should reflect selected values
+- Narrative text should be populated with a complete clinical summary
+
+
+==================================================
+Optional sanity test (low-risk PD)
+==================================================
+Use this to confirm non-major behavior:
+- Deviation Description: "Minor scheduling drift due to weather; no dosing changes; amendment already approved."
+- Subjects Affected: 1
+Expected:
+- Deviation type may trend to protocol_amendment or minor
+- CAPA may be not required

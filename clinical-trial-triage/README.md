@@ -391,6 +391,26 @@ Runtime behavior in this repo when HF path fails:
 - `scripts/validate_submission.py`
 - end-to-end pre-submit checks
 
+### `ui/`
+
+- `ui/index.html`
+- landing page for the product narrative and navigation
+
+- `ui/triage.html`
+- fully integrated frontend runner for AE/PD/SN tasks
+- default mode calls backend `/infer/step` to run `inference.py` action selection (HF-router LLM + deterministic fallback)
+- optional manual mode calls `/reset` and `/step` with complete typed payloads
+- supports same-origin API by default, and optional override via `?api=<base_url>` or `window.API_BASE_URL`
+
+- `ui/docs.html`
+- API and architecture explainer page
+
+- `ui/how-it-works.html`
+- interaction flow walkthrough and system pipeline summary
+
+- `ui/performance.html`
+- benchmark/performance view and qualitative score summaries
+
 ### `rl/`
 
 - `rl/featurizer.py` -> observation encoding
@@ -417,12 +437,15 @@ Runtime behavior in this repo when HF path fails:
 - `GET /health`
 - `POST /reset`
 - `POST /step`
+- `POST /infer/step`
 - `GET /state`
 - `GET /tasks`
 - `GET /grader`
 - `POST /baseline`
 - `GET /leaderboard`
 - `GET /web`
+- `GET /ui/` (mounted static frontend)
+- `GET /triage` (redirect to `/ui/triage.html`)
 
 Main API supports `X-Session-ID` for episode isolation.
 
@@ -459,6 +482,28 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 
 ```bash
 python inference.py
+```
+
+## 12.3.1 Run integrated UI (same backend)
+
+Once server is running, open:
+
+```text
+http://localhost:8000/ui/
+```
+
+For hackathon demos, keep `Execution Mode` on `Inference Pipeline` in `ui/triage.html` to show the same `inference.py` decision path used for HF-router LLM evaluation (with deterministic fallback if provider access is unavailable).
+
+Direct triage route:
+
+```text
+http://localhost:8000/triage
+```
+
+Optional API override for cross-origin testing:
+
+```text
+http://localhost:8000/ui/triage.html?api=http://localhost:8000
 ```
 
 ## 12.4 Run submission validator
@@ -498,6 +543,24 @@ LLM client requirement:
 | `VALIDATOR_BASE_URL` | `scripts/validate_submission.py` | validator target base URL |
 
 Never hardcode keys in source.
+
+---
+
+## 13.1 Hugging Face Spaces: Streamlit vs HTML UI
+
+Short answer:
+
+- If Space SDK is `streamlit`, the primary app shell is Streamlit.
+- You can still render custom HTML inside Streamlit components, but Streamlit remains the host framework.
+- If you want this repo's FastAPI + multipage HTML (`ui/*`) exactly as-is, use `Docker` SDK (recommended here) or serve static pages in front of the API.
+
+Practical recommendation for this project:
+
+1. Use Hugging Face `Docker` Space.
+2. Run `uvicorn server.app:app --host 0.0.0.0 --port 7860`.
+3. Access frontend at `/ui/` and API at `/reset`, `/step`, `/openenv/*` on the same origin.
+
+This avoids CORS and routing mismatch, and preserves the full end-to-end integration used locally.
 
 ---
 

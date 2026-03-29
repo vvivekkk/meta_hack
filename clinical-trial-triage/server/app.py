@@ -34,6 +34,7 @@ from server.openenv_env import (
 )
 
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     clear_session("default")
@@ -533,3 +534,6 @@ async function runEpisode() {
 @app.get("/web", response_class=HTMLResponse)
 async def web_interface() -> HTMLResponse:
     return HTMLResponse(content=WEB_UI_HTML)
+
+from fastapi.staticfiles import StaticFiles
+app.mount("/ui", StaticFiles(directory="ui", html=True), name="ui")

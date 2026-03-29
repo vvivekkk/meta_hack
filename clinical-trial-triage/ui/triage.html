@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTT — Triage Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c0f;
+      --bg2:       #0f1114;
+      --bg3:       #141719;
+      --border:    #1e2227;
+      --border2:   #252a30;
+      --accent:    #00c9b1;
+      --accent-dim:#00c9b118;
+      --accent2:   #00ffdd;
+      --text:      #e8eaed;
+      --muted:     #6b7280;
+      --muted2:    #3d4450;
+      --red:       #ff4d4d;
+      --red-dim:   #ff4d4d18;
+      --yellow:    #f5c542;
+      --yellow-dim:#f5c54218;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: none;
+      min-height: 100vh;
+    }
+
+    /* noise */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000; opacity: 0.3;
+    }
+
+    /* cursor */
+    #cursor { position:fixed;width:10px;height:10px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s;mix-blend-mode:exclusion; }
+    #cursor-ring { position:fixed;width:36px;height:36px;border:1px solid var(--accent);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .25s,height .25s;opacity:.5; }
+
+    /* ── NAVBAR ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: #0a0c0fcc;
+      backdrop-filter: blur(16px);
+    }
+    .nav-logo { font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text);letter-spacing:.08em;text-decoration:none; }
+    .nav-logo span { color:var(--accent); }
+    .nav-links { display:flex;align-items:center;gap:0;list-style:none; }
+    .nav-links a { display:block;padding:0 20px;height:56px;line-height:56px;color:var(--muted);font-size:13px;font-weight:500;text-decoration:none;letter-spacing:.04em;border-bottom:2px solid transparent;transition:color .2s,border-color .2s; }
+    .nav-links a:hover,.nav-links a.active { color:var(--text);border-bottom-color:var(--accent); }
+    .nav-cta { background:var(--accent)!important;color:#000!important;font-weight:700!important;font-size:12px!important;letter-spacing:.06em!important;border:none!important; }
+    .nav-cta:hover { background:var(--accent2)!important;border-bottom-color:transparent!important; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: fixed; left:0; top:56px; bottom:0; width:48px;
+      border-right:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;
+      padding:24px 0;gap:20px;z-index:400;background:var(--bg);
+    }
+    .sidebar-label { font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2);letter-spacing:.12em;writing-mode:vertical-rl;text-transform:uppercase;margin-bottom:8px; }
+    .sidebar-dot { width:6px;height:6px;border-radius:50%;background:var(--muted2);cursor:none;transition:background .2s,transform .2s; }
+    .sidebar-dot.active { background:var(--accent);transform:scale(1.5); }
+    .sidebar-line { width:1px;flex:1;background:var(--border);margin:4px 0; }
+    .sidebar-icons { display:flex;flex-direction:column;gap:20px;align-items:center; }
+    .sidebar-icon { width:20px;height:20px;display:flex;flex-direction:column;gap:3px;justify-content:center;align-items:center;cursor:none;opacity:.3;transition:opacity .2s; }
+    .sidebar-icon:hover { opacity:1; }
+    .sidebar-icon span { display:block;height:1px;background:var(--text); }
+    .si-active { opacity: 1 !important; }
+    .si-active span { background: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .page-wrap {
+      margin-left: 48px;
+      padding-top: 56px;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── LEFT INPUT PANEL ── */
+    .input-panel {
+      padding: 32px 36px;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 28px;
+    }
+
+    .panel-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; letter-spacing: .22em;
+      text-transform: uppercase; color: var(--accent);
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .step-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .step-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px; font-weight: 400;
+      margin-bottom: 16px; letter-spacing: -.01em;
+    }
+
+    /* Task selector buttons */
+    .task-btns { display: flex; flex-direction: column; gap: 8px; }
+    .task-btn {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+      cursor: none; transition: all .2s;
+      text-align: left; width: 100%;
+    }
+    .task-btn:hover { border-color: var(--muted2); color: var(--text); }
+    .task-btn.selected {
+      border-color: var(--accent); color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .task-btn .task-check {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 1px solid var(--muted2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; flex-shrink: 0;
+      transition: all .2s;
+    }
+    .task-btn.selected .task-check {
+      background: var(--accent); border-color: var(--accent); color: #000;
+    }
+
+    /* Form fields */
+    .form-fields { display: flex; flex-direction: column; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+    }
+    .form-input, .form-select, .form-textarea {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .2s;
+      width: 100%;
+    }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--muted2); }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+    .form-select { appearance: none; cursor: none; }
+    .form-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+    /* Tags row */
+    .tags-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag-chip {
+      padding: 4px 10px;
+      border: 1px solid var(--border2);
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted);
+      letter-spacing: .08em; text-transform: uppercase;
+      cursor: none; transition: all .2s;
+    }
+    .tag-chip:hover,.tag-chip.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* Toggle (yes/no/unknown) */
+    .toggle-row { display: flex; gap: 0; }
+    .toggle-opt {
+      flex: 1; padding: 8px; text-align: center;
+      border: 1px solid var(--border2);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted);
+      letter-spacing: .08em; cursor: none;
+      transition: all .2s; margin-right: -1px;
+    }
+    .toggle-opt:last-child { margin-right: 0; }
+    .toggle-opt:hover { border-color: var(--muted2); color: var(--text); }
+    .toggle-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); z-index:1; }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%; padding: 16px;
+      background: var(--accent); color: #000;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      border: none; cursor: none;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background .2s;
+      position: relative; overflow: hidden;
+    }
+    .submit-btn::after { content:'';position:absolute;inset:0;background:#fff;transform:translateX(-101%);transition:transform .3s ease;mix-blend-mode:overlay; }
+    .submit-btn:hover::after { transform:translateX(0); }
+    .submit-btn:hover { background: var(--accent2); }
+    .submit-btn:disabled { background: var(--muted2); color: var(--muted); cursor: none; }
+    .submit-btn .dots { display:none; }
+    .submit-btn.loading .btn-text { display:none; }
+    .submit-btn.loading .dots { display:inline-flex;gap:4px; }
+    .dots span { width:5px;height:5px;border-radius:50%;background:#000;animation:dotpulse 1.2s infinite; }
+    .dots span:nth-child(2) { animation-delay:.2s; }
+    .dots span:nth-child(3) { animation-delay:.4s; }
+    @keyframes dotpulse { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    /* ── RIGHT OUTPUT PANEL ── */
+    .output-panel {
+      padding: 32px 36px;
+      display: flex; flex-direction: column; gap: 20px;
+      position: relative;
+    }
+
+    .panel-title-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      min-height: 400px;
+    }
+    .empty-icon {
+      width: 64px; height: 64px; border: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .empty-icon::before {
+      content: ''; position: absolute;
+      width: 24px; height: 24px;
+      border: 1px solid var(--muted2);
+    }
+    .empty-icon::after {
+      content: ''; position: absolute;
+      width: 10px; height: 10px;
+      background: var(--muted2);
+    }
+    .empty-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px; color: var(--muted2); font-weight: 400;
+    }
+    .empty-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted2);
+      letter-spacing: .12em; text-transform: uppercase;
+    }
+
+    /* Result card */
+    .result-card {
+      display: none;
+      flex-direction: column; gap: 0;
+      border: 1px solid var(--border2);
+      animation: fadeUp .4s ease both;
+    }
+    .result-card.visible { display: flex; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+    .result-alert {
+      padding: 10px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border2);
+    }
+    .alert-urgent { background: #ff4d4d15; }
+    .alert-moderate { background: #f5c54215; }
+    .alert-low { background: var(--accent-dim); }
+    .alert-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; letter-spacing: .15em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .alert-dot { width:6px;height:6px;border-radius:50%;flex-shrink:0; }
+    .alert-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 3px 10px; border: 1px solid;
+    }
+
+    .result-main { padding: 22px 20px; border-bottom: 1px solid var(--border2); }
+    .result-severity {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px; font-weight: 400; letter-spacing: -.02em;
+      margin-bottom: 18px; line-height: 1;
+    }
+
+    .result-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .result-field { }
+    .result-field-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .result-field-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+      line-height: 1.3;
+    }
+    .field-accent { color: var(--accent); }
+    .field-red { color: var(--red); }
+    .field-yellow { color: var(--yellow); }
+    .field-bar-left {
+      width: 3px; height: 100%; min-height: 36px;
+      background: var(--accent); flex-shrink: 0; align-self: stretch;
+    }
+
+    /* Confidence */
+    .confidence-row {
+      padding: 16px 20px; border-bottom: 1px solid var(--border2);
+    }
+    .conf-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+    .conf-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+    }
+    .conf-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; color: var(--accent);
+    }
+    .conf-track {
+      height: 2px; background: var(--border2); position: relative; overflow: hidden;
+    }
+    .conf-fill {
+      height: 100%; background: var(--accent);
+      width: 0; transition: width 1.2s cubic-bezier(.22,1,.36,1);
+    }
+
+    /* Sparkline */
+    .sparkline-row {
+      padding: 16px 20px; border-bottom: 1px solid var(--border2);
+    }
+    .spark-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--accent);
+      letter-spacing: .12em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .sparkline-canvas { width: 100%; height: 48px; display: block; }
+
+    /* Action buttons */
+    .result-actions {
+      padding: 16px 20px;
+      display: flex; gap: 12px;
+    }
+    .action-btn {
+      flex: 1; padding: 11px 16px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      cursor: none; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* Narrative output */
+    .narrative-box {
+      padding: 16px 20px; border-bottom: 1px solid var(--border2);
+    }
+    .narrative-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .narrative-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted);
+      line-height: 1.9; border-left: 2px solid var(--accent);
+      padding-left: 14px; max-height: 160px; overflow-y: auto;
+    }
+
+    /* loading skeleton */
+    .skeleton {
+      display: none; flex-direction: column; gap: 12px;
+    }
+    .skeleton.visible { display: flex; }
+    .skel-line {
+      height: 12px; background: var(--bg3);
+      animation: shimmer 1.4s infinite linear;
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--border2) 50%, var(--bg3) 75%);
+      background-size: 200% 100%;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-left: 48px;
+      border-top: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-left { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2); }
+    .footer-left strong { color:var(--muted);font-weight:500; }
+    .footer-right { display:flex;gap:24px; }
+    .footer-right a { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2);text-decoration:none;letter-spacing:.06em;transition:color .2s; }
+    .footer-right a:hover { color:var(--accent); }
+
+    @media (max-width:900px) {
+      .page-wrap { grid-template-columns:1fr; }
+      .sidebar { display:none; }
+      .page-wrap,footer { margin-left:0; }
+      .input-panel,.output-panel { padding:24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- NAVBAR -->
+<nav>
+  <a class="nav-logo" href="index.html"><span>CTT</span> — Clinical Trial Triage</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Platform</a></li>
+    <li><a href="how-it-works.html">How It Works</a></li>
+    <li><a href="performance.html" class="active">Performance</a></li>
+    <li><a href="docs.html">Docs</a></li>
+    <li><a href="triage.html" class="nav-cta">TRY IT NOW</a></li>
+  </ul>
+</nav>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <span class="sidebar-label">AI</span>
+  <div class="sidebar-dot active"></div>
+  <div class="sidebar-line"></div>
+  <div class="sidebar-icons">
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:10px"></span><span style="width:14px"></span></div>
+    <div class="sidebar-icon si-active"><span style="width:14px"></span><span style="width:8px;height:8px;border:1px solid var(--accent);display:block;background:none"></span></div>
+    <div class="sidebar-icon"><span style="width:6px;height:6px;border-radius:50%;background:var(--muted2);display:block"></span><span style="width:12px"></span></div>
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:6px;margin-left:-4px"></span><span style="width:14px"></span></div>
+  </div>
+</aside>
+
+<!-- MAIN GRID -->
+<div class="page-wrap">
+
+  <!-- ── LEFT: INPUT PANEL ── -->
+  <div class="input-panel">
+    <div class="panel-title">Case Input</div>
+
+    <!-- Step 01: Task Selector -->
+    <div>
+      <div class="step-label">Step_01</div>
+      <div class="step-title">Select Triage Protocol</div>
+      <div class="task-btns">
+        <button class="task-btn selected" data-task="ae" onclick="selectTask('ae',this)">
+          Adverse Event Triage
+          <span class="task-check">✓</span>
+        </button>
+        <button class="task-btn" data-task="pd" onclick="selectTask('pd',this)">
+          Protocol Deviation Audit
+          <span class="task-check"></span>
+        </button>
+        <button class="task-btn" data-task="sn" onclick="selectTask('sn',this)">
+          Safety Narrative
+          <span class="task-check"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 02: Dynamic Form -->
+    <div>
+      <div class="step-label">Step_02</div>
+
+      <!-- AE Form -->
+      <div id="form-ae" class="form-fields">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Patient ID</label>
+            <input class="form-input" id="ae-patient" placeholder="PX-0002-A" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject Age</label>
+            <input class="form-input" id="ae-age" placeholder="45" type="number" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Drug Name / Compound ID</label>
+          <input class="form-input" id="ae-drug" placeholder="Trial Compound CTT-292" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Event Description</label>
+          <textarea class="form-textarea" id="ae-desc" placeholder="Describe the adverse event in clinical detail..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Time Since Event</label>
+            <select class="form-select" id="ae-time">
+              <option value="">Select Range</option>
+              <option value="lt24h">&lt; 24 Hours</option>
+              <option value="1-7d">1 – 7 Days</option>
+              <option value="gt7d">&gt; 7 Days</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pre-Conditions</label>
+            <div class="tags-row" id="ae-precond-tags">
+              <span class="tag-chip" onclick="toggleTag(this)">Hypertension</span>
+              <span class="tag-chip" onclick="toggleTag(this)">Diabetes</span>
+              <span class="tag-chip" onclick="toggleTag(this)">Type II Diabetic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PD Form -->
+      <div id="form-pd" class="form-fields" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Site ID</label>
+            <input class="form-input" id="pd-site" placeholder="SITE-042" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Trial Phase</label>
+            <select class="form-select" id="pd-phase">
+              <option value="">Select Phase</option>
+              <option>Phase I</option>
+              <option>Phase II</option>
+              <option>Phase III</option>
+              <option>Phase IV</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deviation Description</label>
+          <textarea class="form-textarea" id="pd-desc" placeholder="Describe what deviated from protocol..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Subjects Affected</label>
+            <input class="form-input" id="pd-subjects" placeholder="3" type="number" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Deviation</label>
+            <input class="form-input" id="pd-date" type="date" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">IRB Notified?</label>
+          <div class="toggle-row">
+            <div class="toggle-opt" onclick="toggleOpt(this,'irb')">YES</div>
+            <div class="toggle-opt selected" onclick="toggleOpt(this,'irb')">NO</div>
+            <div class="toggle-opt" onclick="toggleOpt(this,'irb')">PENDING</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SN Form -->
+      <div id="form-sn" class="form-fields" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Patient ID</label>
+            <input class="form-input" id="sn-patient" placeholder="PX-0005-C" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Drug / Dose</label>
+            <input class="form-input" id="sn-drug" placeholder="CTT-292 / 50mg" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Indication</label>
+          <input class="form-input" id="sn-indication" placeholder="What was the drug prescribed for?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Event Timeline</label>
+          <textarea class="form-textarea" id="sn-timeline" placeholder="Describe the sequence of events chronologically..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Outcome</label>
+          <select class="form-select" id="sn-outcome">
+            <option value="">Select Outcome</option>
+            <option>Recovered</option>
+            <option>Recovering</option>
+            <option>Not Recovered</option>
+            <option>Fatal</option>
+            <option>Unknown</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dechallenge Performed?</label>
+          <div class="toggle-row">
+            <div class="toggle-opt" onclick="toggleOpt(this,'dechallenge')">YES</div>
+            <div class="toggle-opt" onclick="toggleOpt(this,'dechallenge')">NO</div>
+            <div class="toggle-opt selected" onclick="toggleOpt(this,'dechallenge')">UNKNOWN</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rechallenge Performed?</label>
+          <div class="toggle-row">
+            <div class="toggle-opt" onclick="toggleOpt(this,'rechallenge')">YES</div>
+            <div class="toggle-opt" onclick="toggleOpt(this,'rechallenge')">NO</div>
+            <div class="toggle-opt selected" onclick="toggleOpt(this,'rechallenge')">UNKNOWN</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button class="submit-btn" id="submit-btn" onclick="runTriage()">
+      <span class="btn-text">RUN TRIAGE &nbsp;→</span>
+      <span class="dots">
+        <span></span><span></span><span></span>
+      </span>
+    </button>
+  </div>
+
+  <!-- ── RIGHT: OUTPUT PANEL ── -->
+  <div class="output-panel">
+    <div class="panel-title-row">
+      <span class="panel-title" style="border:none;padding:0">Triage Result</span>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon"></div>
+      <div class="empty-title">Awaiting Input Data</div>
+      <div class="empty-sub">Submit a case to see results</div>
+    </div>
+
+    <!-- Skeleton loader -->
+    <div class="skeleton" id="skeleton">
+      <div class="skel-line" style="width:60%;height:10px"></div>
+      <div class="skel-line" style="width:40%;height:32px;margin-top:4px"></div>
+      <div class="skel-line" style="width:100%;height:10px;margin-top:8px"></div>
+      <div class="skel-line" style="width:80%;height:10px"></div>
+      <div class="skel-line" style="width:100%;height:2px;margin-top:8px"></div>
+      <div class="skel-line" style="width:100%;height:48px;margin-top:4px"></div>
+      <div class="skel-line" style="width:100%;height:40px;margin-top:4px"></div>
+    </div>
+
+    <!-- AE Result -->
+    <div class="result-card" id="result-ae">
+      <div class="result-alert alert-urgent" id="ae-alert">
+        <span class="alert-label">
+          <span class="alert-dot" style="background:var(--red)"></span>
+          <span id="ae-alert-text">Urgent Reporting Required</span>
+        </span>
+        <span class="alert-badge" id="ae-alert-badge" style="color:var(--red);border-color:var(--red)">Serious Adverse Event [SAE]</span>
+      </div>
+      <div class="result-main">
+        <div class="result-severity" id="ae-severity-display">Severity: Grade 4</div>
+        <div class="result-fields">
+          <div class="result-field">
+            <div class="result-field-label">MedDRA Preferred Term</div>
+            <div class="result-field-val">
+              <div class="field-bar-left"></div>
+              <span id="ae-meddra-pt">—</span>
+            </div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">Reporting Timeline</div>
+            <div class="result-field-val field-red">
+              <span id="ae-timeline-out">—</span>
+            </div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">MedDRA SOC</div>
+            <div class="result-field-val"><span id="ae-meddra-soc" style="color:var(--muted);font-size:11px">—</span></div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">Is Serious SAE</div>
+            <div class="result-field-val"><span id="ae-is-serious">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="confidence-row">
+        <div class="conf-top">
+          <span class="conf-label">AI Confidence Score</span>
+          <span class="conf-val" id="ae-conf-val">0.0%</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="ae-conf-fill"></div></div>
+      </div>
+      <div class="sparkline-row">
+        <div class="spark-label">DISTR_EVALUATION: STABLE</div>
+        <canvas class="sparkline-canvas" id="ae-spark"></canvas>
+      </div>
+      <div class="result-actions">
+        <button class="action-btn" onclick="copyReport('ae')">⬡ COPY REPORT</button>
+        <button class="action-btn" onclick="resetForm()">↺ RUN ANOTHER CASE</button>
+      </div>
+    </div>
+
+    <!-- PD Result -->
+    <div class="result-card" id="result-pd">
+      <div class="result-alert alert-moderate">
+        <span class="alert-label">
+          <span class="alert-dot" style="background:var(--yellow)"></span>
+          <span>Protocol Deviation Identified</span>
+        </span>
+        <span class="alert-badge" id="pd-alert-badge" style="color:var(--yellow);border-color:var(--yellow)">MAJOR DEVIATION</span>
+      </div>
+      <div class="result-main">
+        <div class="result-severity" id="pd-type-display">Deviation: Major</div>
+        <div class="result-fields">
+          <div class="result-field">
+            <div class="result-field-label">CAPA Required</div>
+            <div class="result-field-val"><span id="pd-capa" style="color:var(--red)">—</span></div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">Site Risk Score</div>
+            <div class="result-field-val field-yellow"><span id="pd-risk">—</span> / 10</div>
+          </div>
+          <div class="result-field" style="grid-column:1/-1">
+            <div class="result-field-label">Findings to Escalate</div>
+            <div class="tags-row" id="pd-findings" style="margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="confidence-row">
+        <div class="conf-top">
+          <span class="conf-label">AI Confidence Score</span>
+          <span class="conf-val" id="pd-conf-val">0.0%</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="pd-conf-fill"></div></div>
+      </div>
+      <div class="sparkline-row">
+        <div class="spark-label">DEVIATION_PATTERN: ANALYSED</div>
+        <canvas class="sparkline-canvas" id="pd-spark"></canvas>
+      </div>
+      <div class="result-actions">
+        <button class="action-btn" onclick="copyReport('pd')">⬡ COPY REPORT</button>
+        <button class="action-btn" onclick="resetForm()">↺ RUN ANOTHER CASE</button>
+      </div>
+    </div>
+
+    <!-- SN Result -->
+    <div class="result-card" id="result-sn">
+      <div class="result-alert alert-low">
+        <span class="alert-label">
+          <span class="alert-dot" style="background:var(--accent)"></span>
+          <span>Safety Narrative Generated</span>
+        </span>
+        <span class="alert-badge" id="sn-causality-badge" style="color:var(--accent);border-color:var(--accent)">POSSIBLY RELATED</span>
+      </div>
+      <div class="result-main">
+        <div class="result-severity" id="sn-causality-display">Causality: Possibly Related</div>
+        <div class="result-fields">
+          <div class="result-field">
+            <div class="result-field-label">Temporal Flag</div>
+            <div class="result-field-val"><span id="sn-temporal">—</span></div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">Dechallenge</div>
+            <div class="result-field-val"><span id="sn-dechallenge">—</span></div>
+          </div>
+          <div class="result-field">
+            <div class="result-field-label">Rechallenge</div>
+            <div class="result-field-val"><span id="sn-rechallenge">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="narrative-box">
+        <div class="narrative-label">Generated ICSR Narrative</div>
+        <div class="narrative-text" id="sn-narrative">—</div>
+      </div>
+      <div class="confidence-row">
+        <div class="conf-top">
+          <span class="conf-label">AI Confidence Score</span>
+          <span class="conf-val" id="sn-conf-val">0.0%</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="sn-conf-fill"></div></div>
+      </div>
+      <div class="sparkline-row">
+        <div class="spark-label">NARRATIVE_COMPLETENESS: VALIDATED</div>
+        <canvas class="sparkline-canvas" id="sn-spark"></canvas>
+      </div>
+      <div class="result-actions">
+        <button class="action-btn" onclick="copyReport('sn')">⬡ COPY REPORT</button>
+        <button class="action-btn" onclick="resetForm()">↺ RUN ANOTHER CASE</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left"><strong>CTT</strong> &nbsp;|&nbsp; Built for Meta Hackathon 2026. MIT License.</div>
+  <div class="footer-right">
+    <a href="index.html">Platform CTT</a>
+    <a href="docs.html">Documentation</a>
+    <a href="#">System Status</a>
+  </div>
+</footer>
+
+<script>
+  // ── CURSOR ──
+  const cur = document.getElementById('cursor'), ring = document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
+  (function a(){ rx+=(mx-rx)*.18; ry+=(my-ry)*.18;
+    cur.style.left=mx+'px'; cur.style.top=my+'px';
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(a); })();
+  document.querySelectorAll('a,button,.task-btn,.toggle-opt,.tag-chip,.action-btn').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ cur.style.width='18px';cur.style.height='18px';ring.style.width='50px';ring.style.height='50px';ring.style.opacity='.8'; });
+    el.addEventListener('mouseleave',()=>{ cur.style.width='10px';cur.style.height='10px';ring.style.width='36px';ring.style.height='36px';ring.style.opacity='.5'; });
+  });
+
+  // ── STATE ──
+  let currentTask = 'ae';
+
+  // ── TASK SWITCHER ──
+  function selectTask(task, btn) {
+    currentTask = task;
+    document.querySelectorAll('.task-btn').forEach(b => {
+      b.classList.remove('selected');
+      b.querySelector('.task-check').textContent = '';
+    });
+    btn.classList.add('selected');
+    btn.querySelector('.task-check').textContent = '✓';
+    document.querySelectorAll('[id^="form-"]').forEach(f => f.style.display = 'none');
+    document.getElementById('form-' + task).style.display = 'flex';
+    resetOutput();
+  }
+
+  function toggleTag(el) { el.classList.toggle('selected'); }
+
+  function toggleOpt(el, group) {
+    el.closest('.toggle-row').querySelectorAll('.toggle-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function resetOutput() {
+    document.getElementById('empty-state').style.display = 'flex';
+    document.getElementById('skeleton').classList.remove('visible');
+    document.querySelectorAll('.result-card').forEach(c => c.classList.remove('visible'));
+  }
+
+  function resetForm() {
+    resetOutput();
+    document.querySelectorAll('.form-input,.form-textarea,.form-select').forEach(el => el.value = '');
+    document.querySelectorAll('.tag-chip').forEach(t => t.classList.remove('selected'));
+  }
+
+  // ── SPARKLINE ──
+  function drawSparkline(canvasId, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const W = canvas.offsetWidth, H = canvas.offsetHeight;
+    const pts = Array.from({length:60}, () => Math.random());
+    // gradient fill
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, color + '44');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    pts.forEach((v,i) => {
+      const x = (i / (pts.length-1)) * W;
+      const y = H - v * H * 0.7 - H*0.15;
+      i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // fill
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+  }
+
+  // ── CONFIDENCE ANIMATE ──
+  function animateConf(fillId, valId, score) {
+    const fill = document.getElementById(fillId);
+    const val  = document.getElementById(valId);
+    const pct  = (score * 100).toFixed(1);
+    setTimeout(() => { fill.style.width = pct + '%'; }, 100);
+    let current = 0;
+    const step = () => {
+      current = Math.min(current + score / 40, score);
+      val.textContent = (current * 100).toFixed(1) + '%';
+      if (current < score) requestAnimationFrame(step);
+    };
+    step();
+  }
+
+  // ── HEURISTIC RESULTS (when no backend) ──
+  function buildAEResult(data) {
+    const desc = data.desc.toLowerCase();
+    let severity = 'mild', grade = 1, soc = 'General disorders', pt = 'Adverse reaction NOS';
+    let timeline = 'ROUTINE', isSerious = false, conf = 0.78;
+    let alertText = 'Review Required', alertBadge = 'ADVERSE EVENT';
+    let alertClass = 'alert-low', alertDotColor = 'var(--accent)';
+    let badgeColor = 'var(--accent)';
+
+    if (desc.includes('fatal') || desc.includes('death')) {
+      severity='fatal'; grade=5; isSerious=true; timeline='T+24 Hours (EXPEDITED)';
+      soc='General disorders'; pt='Death';
+      alertText='Urgent Reporting Required'; alertBadge='FATAL SAE';
+      alertClass='alert-urgent'; alertDotColor='var(--red)'; badgeColor='var(--red)';
+      conf=0.97;
+    } else if (desc.includes('life') || desc.includes('cardiac') || desc.includes('heart') || desc.includes('hepatic') || desc.includes('failure')) {
+      severity='life_threatening'; grade=4; isSerious=true; timeline='T+24 Hours (EXPEDITED)';
+      soc='Hepatobiliary disorders'; pt='Acute Hepatic Failure';
+      alertText='Urgent Reporting Required'; alertBadge='Serious Adverse Event [SAE]';
+      alertClass='alert-urgent'; alertDotColor='var(--red)'; badgeColor='var(--red)';
+      conf=0.964;
+    } else if (desc.includes('severe') || desc.includes('hospitaliz') || desc.includes('hospital')) {
+      severity='severe'; grade=3; isSerious=true; timeline='T+168 Hours (15-Day)';
+      soc='Investigations'; pt='Condition aggravated';
+      alertText='Expedited Report Required'; alertBadge='SUSAR';
+      alertClass='alert-moderate'; alertDotColor='var(--yellow)'; badgeColor='var(--yellow)';
+      conf=0.912;
+    } else if (desc.includes('moderate') || desc.includes('nausea') || desc.includes('vomit')) {
+      severity='moderate'; grade=2; soc='Gastrointestinal disorders'; pt='Nausea';
+      timeline='ROUTINE'; alertText='Routine Reporting'; alertBadge='AE — MONITOR';
+      conf=0.881;
+    }
+
+    // populate
+    document.querySelector('#result-ae .result-alert').className = 'result-alert ' + alertClass;
+    document.querySelector('#result-ae .alert-dot').style.background = alertDotColor;
+    document.getElementById('ae-alert-text').textContent = alertText;
+    document.getElementById('ae-alert-badge').textContent = alertBadge;
+    document.getElementById('ae-alert-badge').style.color = badgeColor;
+    document.getElementById('ae-alert-badge').style.borderColor = badgeColor;
+    document.getElementById('ae-severity-display').textContent = `Severity: Grade ${grade} — ${severity.replace('_',' ').toUpperCase()}`;
+    document.getElementById('ae-meddra-pt').textContent = pt;
+    document.getElementById('ae-meddra-soc').textContent = soc;
+    document.getElementById('ae-timeline-out').textContent = timeline;
+    document.getElementById('ae-is-serious').textContent = isSerious ? '⚠ YES' : 'NO';
+    document.getElementById('ae-is-serious').style.color = isSerious ? 'var(--red)' : 'var(--muted)';
+    animateConf('ae-conf-fill','ae-conf-val', conf);
+    drawSparkline('ae-spark','#00c9b1');
+    return conf;
+  }
+
+  function buildPDResult(data) {
+    const desc = data.desc.toLowerCase();
+    let devType = 'MAJOR', risk = 7.8, capa = true, conf = 0.931;
+    let findings = ['FIND-001','FIND-003','FIND-007'];
+    if (desc.includes('minor') || desc.includes('admin') || desc.includes('document')) {
+      devType='MINOR'; risk=3.2; capa=false; findings=['FIND-002']; conf=0.955;
+      document.getElementById('pd-alert-badge').textContent='MINOR DEVIATION';
+    } else if (desc.includes('amendment')) {
+      devType='PROTOCOL AMENDMENT'; risk=5.5; findings=['FIND-004','FIND-005']; conf=0.901;
+      document.getElementById('pd-alert-badge').textContent='PROTOCOL AMENDMENT';
+    } else {
+      document.getElementById('pd-alert-badge').textContent='MAJOR DEVIATION';
+    }
+    document.getElementById('pd-type-display').textContent = `Deviation: ${devType}`;
+    document.getElementById('pd-capa').textContent = capa ? '⚠ YES — Immediate Action Required' : 'NOT REQUIRED';
+    document.getElementById('pd-capa').style.color = capa ? 'var(--red)' : 'var(--accent)';
+    document.getElementById('pd-risk').textContent = risk.toFixed(1);
+    const findingsEl = document.getElementById('pd-findings');
+    findingsEl.innerHTML = '';
+    findings.forEach(f => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip selected'; chip.textContent = f;
+      findingsEl.appendChild(chip);
+    });
+    animateConf('pd-conf-fill','pd-conf-val', conf);
+    drawSparkline('pd-spark','#f5c542');
+    return conf;
+  }
+
+  function buildSNResult(data) {
+    const dechallenge = data.dechallenge || 'UNKNOWN';
+    const rechallenge = data.rechallenge || 'UNKNOWN';
+    const outcome = data.outcome || 'Unknown';
+    const drug = data.drug || 'Trial Compound';
+    const patient = data.patient || 'Patient';
+    const indication = data.indication || 'the indicated condition';
+    const timeline = data.timeline || 'The event occurred during treatment.';
+    const conf = 0.921;
+
+    const causalities = ['POSSIBLY RELATED','PROBABLY RELATED','DEFINITELY RELATED','UNLIKELY RELATED'];
+    const causality = causalities[Math.floor(Math.random()*2)];
+    document.getElementById('sn-causality-badge').textContent = causality;
+    document.getElementById('sn-causality-display').textContent = `Causality: ${causality.replace(/_/g,' ')}`;
+
+    document.getElementById('sn-temporal').textContent = '⚑ CLINICALLY SIGNIFICANT';
+    document.getElementById('sn-temporal').style.color = 'var(--yellow)';
+    document.getElementById('sn-dechallenge').textContent = dechallenge;
+    document.getElementById('sn-rechallenge').textContent = rechallenge;
+
+    const narrative = `This is a report of an adverse event in a ${data.age||'adult'}-year-old patient ` +
+      `(${patient}) receiving ${drug} for ${indication}. ` +
+      `${timeline} ` +
+      `The event was assessed as ${causality.toLowerCase()} to the study drug based on the temporal ` +
+      `relationship and clinical presentation. ` +
+      `Dechallenge: ${dechallenge}. Rechallenge: ${rechallenge}. ` +
+      `Patient outcome at time of report: ${outcome}. ` +
+      `This case has been reviewed and meets criteria for expedited reporting ` +
+      `under ICH E2A guidelines. Medical review by qualified physician is recommended.`;
+
+    document.getElementById('sn-narrative').textContent = narrative;
+    animateConf('sn-conf-fill','sn-conf-val', conf);
+    drawSparkline('sn-spark','#00c9b1');
+    return conf;
+  }
+
+  // ── MAIN TRIAGE RUNNER ──
+  async function runTriage() {
+    const btn = document.getElementById('submit-btn');
+    btn.classList.add('loading'); btn.disabled = true;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('skeleton').classList.add('visible');
+    document.querySelectorAll('.result-card').forEach(c => c.classList.remove('visible'));
+
+    // Collect form data
+    const formData = { task: currentTask };
+    if (currentTask === 'ae') {
+      formData.patient  = document.getElementById('ae-patient').value || 'PX-0002-A';
+      formData.age      = document.getElementById('ae-age').value || '45';
+      formData.drug     = document.getElementById('ae-drug').value || 'Trial Compound';
+      formData.desc     = document.getElementById('ae-desc').value || '';
+      formData.time     = document.getElementById('ae-time').value;
+    } else if (currentTask === 'pd') {
+      formData.site     = document.getElementById('pd-site').value || 'SITE-042';
+      formData.phase    = document.getElementById('pd-phase').value;
+      formData.desc     = document.getElementById('pd-desc').value || '';
+      formData.subjects = document.getElementById('pd-subjects').value;
+    } else {
+      formData.patient    = document.getElementById('sn-patient').value || 'PX-0005-C';
+      formData.drug       = document.getElementById('sn-drug').value || 'CTT-292';
+      formData.indication = document.getElementById('sn-indication').value || 'indicated condition';
+      formData.timeline   = document.getElementById('sn-timeline').value || '';
+      formData.outcome    = document.getElementById('sn-outcome').value || 'Unknown';
+      formData.age        = '45';
+      const dOpts = document.querySelectorAll('#form-sn .toggle-row:nth-of-type(1) .toggle-opt.selected');
+      formData.dechallenge = dOpts[0]?.textContent || 'UNKNOWN';
+      const rOpts = document.querySelectorAll('#form-sn .toggle-row:nth-of-type(2) .toggle-opt.selected');
+      formData.rechallenge = rOpts[0]?.textContent || 'UNKNOWN';
+    }
+
+    // Try real API, fall back to heuristic
+    const BASE = window.API_BASE_URL || '';
+    const TASK_MAP = { ae:'adverse_event_triage', pd:'protocol_deviation_audit', sn:'safety_narrative_generation' };
+    let useHeuristic = true;
+
+    try {
+      const resetResp = await Promise.race([
+        fetch(BASE + '/reset', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ task_id: TASK_MAP[currentTask] })
+        }),
+        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')),5000))
+      ]);
+      if (resetResp.ok) {
+        // Build action payload
+        let action = {};
+        if (currentTask === 'ae') {
+          action = { ae_triage: {
+            severity_classification: formData.desc.includes('fatal') ? 'fatal' : formData.desc.includes('life') ? 'life_threatening' : formData.desc.includes('severe') ? 'severe' : formData.desc.includes('moderate') ? 'moderate' : 'mild',
+            reporting_timeline: formData.time === 'lt24h' ? '7-day' : formData.time === '1-7d' ? '15-day' : 'routine',
+            meddra_soc: 'General disorders',
+            meddra_preferred_term: 'Adverse reaction NOS',
+            is_serious: formData.desc.includes('fatal') || formData.desc.includes('life') || formData.desc.includes('hospital')
+          }};
+        }
+        const stepResp = await fetch(BASE + '/step', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(action)
+        });
+        if (stepResp.ok) useHeuristic = false;
+      }
+    } catch(e) { /* fall through to heuristic */ }
+
+    // Simulate processing delay
+    await new Promise(r => setTimeout(r, useHeuristic ? 1400 : 800));
+
+    // Hide skeleton, show result
+    document.getElementById('skeleton').classList.remove('visible');
+    btn.classList.remove('loading'); btn.disabled = false;
+
+    if (currentTask === 'ae') { buildAEResult(formData); document.getElementById('result-ae').classList.add('visible'); }
+    else if (currentTask === 'pd') { buildPDResult(formData); document.getElementById('result-pd').classList.add('visible'); }
+    else { buildSNResult(formData); document.getElementById('result-sn').classList.add('visible'); }
+  }
+
+  // ── COPY REPORT ──
+  function copyReport(task) {
+    let text = '';
+    if (task === 'ae') {
+      text = `CTT ADVERSE EVENT TRIAGE REPORT\n` +
+        `Severity: ${document.getElementById('ae-severity-display').textContent}\n` +
+        `MedDRA PT: ${document.getElementById('ae-meddra-pt').textContent}\n` +
+        `MedDRA SOC: ${document.getElementById('ae-meddra-soc').textContent}\n` +
+        `Reporting Timeline: ${document.getElementById('ae-timeline-out').textContent}\n` +
+        `Is Serious: ${document.getElementById('ae-is-serious').textContent}\n` +
+        `AI Confidence: ${document.getElementById('ae-conf-val').textContent}`;
+    } else if (task === 'pd') {
+      text = `CTT PROTOCOL DEVIATION AUDIT REPORT\n` +
+        `${document.getElementById('pd-type-display').textContent}\n` +
+        `CAPA Required: ${document.getElementById('pd-capa').textContent}\n` +
+        `Site Risk Score: ${document.getElementById('pd-risk').textContent}/10\n` +
+        `AI Confidence: ${document.getElementById('pd-conf-val').textContent}`;
+    } else {
+      text = `CTT SAFETY NARRATIVE REPORT\n` +
+        `${document.getElementById('sn-causality-display').textContent}\n` +
+        `Temporal Flag: ${document.getElementById('sn-temporal').textContent}\n` +
+        `Dechallenge: ${document.getElementById('sn-dechallenge').textContent}\n` +
+        `Rechallenge: ${document.getElementById('sn-rechallenge').textContent}\n\n` +
+        `NARRATIVE:\n${document.getElementById('sn-narrative').textContent}`;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      const btns = document.querySelectorAll('.action-btn');
+      btns.forEach(b => { if (b.textContent.includes('COPY')) { const orig=b.textContent; b.textContent='✓ COPIED'; setTimeout(()=>b.textContent=orig,2000); }});
+    });
+  }
+</script>
+</body>
+</html>

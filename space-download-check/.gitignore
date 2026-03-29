@@ -9,6 +9,5 @@ __pycache__/
 outputs/
 *.log
 .env
-myemv/
 
 

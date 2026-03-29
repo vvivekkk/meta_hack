@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTT — Clinical Trial Triage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c0f;
+      --bg2:       #0f1114;
+      --bg3:       #141719;
+      --border:    #1e2227;
+      --border2:   #252a30;
+      --accent:    #00c9b1;
+      --accent-dim:#00c9b122;
+      --accent2:   #00ffdd;
+      --text:      #e8eaed;
+      --muted:     #6b7280;
+      --muted2:    #3d4450;
+      --red:       #ff4d4d;
+      --yellow:    #f5c542;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── CUSTOM CURSOR ── */
+    #cursor {
+      position: fixed; width: 10px; height: 10px;
+      background: var(--accent); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s, opacity 0.2s;
+      mix-blend-mode: exclusion;
+    }
+    #cursor-ring {
+      position: fixed; width: 36px; height: 36px;
+      border: 1px solid var(--accent); border-radius: 50%;
+      pointer-events: none; z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.18s ease, width 0.25s, height 0.25s, opacity 0.25s;
+      opacity: 0.5;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000; opacity: 0.35;
+    }
+
+    /* ── NAVBAR ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: #0a0c0fcc;
+      backdrop-filter: blur(16px);
+    }
+    .nav-logo {
+      font-family: 'DM Mono', monospace;
+      font-size: 15px; font-weight: 500;
+      color: var(--text); letter-spacing: 0.08em;
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-links {
+      display: flex; align-items: center; gap: 0;
+      list-style: none;
+    }
+    .nav-links a {
+      display: block; padding: 0 20px; height: 56px; line-height: 56px;
+      color: var(--muted); font-size: 13px; font-weight: 500;
+      text-decoration: none; letter-spacing: 0.04em;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text); border-bottom-color: var(--accent);
+    }
+    .nav-cta {
+      background: var(--accent); color: #000 !important;
+      font-weight: 700 !important; padding: 0 20px !important;
+      letter-spacing: 0.06em !important; font-size: 12px !important;
+      border: none !important;
+      transition: background 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--accent2) !important; border-bottom-color: transparent !important; }
+
+    /* ── LEFT SIDEBAR PHASE INDICATOR ── */
+    .sidebar {
+      position: fixed; left: 0; top: 56px; bottom: 0;
+      width: 48px; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 0; gap: 20px; z-index: 400;
+      background: var(--bg);
+    }
+    .sidebar-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: 0.12em; writing-mode: vertical-rl;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    .sidebar-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted2); cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .sidebar-dot:hover, .sidebar-dot.active { background: var(--accent); transform: scale(1.5); }
+    .sidebar-line {
+      width: 1px; flex: 1; background: var(--border);
+      margin: 4px 0;
+    }
+    .sidebar-icons { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+    .sidebar-icon {
+      width: 20px; height: 20px; display: flex; flex-direction: column;
+      gap: 3px; justify-content: center; align-items: center;
+      cursor: pointer; opacity: 0.3; transition: opacity 0.2s;
+    }
+    .sidebar-icon:hover { opacity: 1; }
+    .sidebar-icon span {
+      display: block; height: 1px; background: var(--text);
+      transition: width 0.2s;
+    }
+    .sidebar-icon span:nth-child(1) { width: 14px; }
+    .sidebar-icon span:nth-child(2) { width: 10px; }
+    .sidebar-icon span:nth-child(3) { width: 14px; }
+
+    /* ── MAIN LAYOUT ── */
+    .main-wrap {
+      margin-left: 48px;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+    }
+
+    /* ── LEFT HERO PANEL ── */
+    .hero-left {
+      padding: 56px 0 0 0;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* scan line effect */
+    .hero-left::after {
+      content: '';
+      position: absolute; left: 0; right: 0; top: 0;
+      height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scanline 4s linear infinite;
+      pointer-events: none; opacity: 0.3;
+    }
+    @keyframes scanline {
+      0%   { top: 56px; opacity: 0; }
+      5%   { opacity: 0.3; }
+      95%  { opacity: 0.3; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    .hero-tag {
+      padding: 32px 48px 0;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .hero-tag-line {
+      width: 40px; height: 1px; background: var(--accent);
+    }
+    .hero-tag-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted);
+      letter-spacing: 0.2em; text-transform: uppercase;
+    }
+
+    .hero-headline {
+      padding: 28px 48px 0;
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(48px, 5.5vw, 74px);
+      line-height: 1.0;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      animation: fadeUp 0.8s ease both;
+    }
+    .hero-headline em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-sub {
+      padding: 20px 48px 0;
+      color: var(--muted); font-size: 14px; line-height: 1.75;
+      max-width: 440px;
+      animation: fadeUp 0.8s 0.15s ease both;
+    }
+
+    /* ── TICKER WIDGET ── */
+    .ticker-widget {
+      margin: 32px 48px 0;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      padding: 16px 20px;
+      max-width: 340px;
+      animation: fadeUp 0.8s 0.3s ease both;
+      position: relative;
+    }
+    .ticker-widget::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .ticker-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ticker-live {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 9px; color: var(--accent);
+    }
+    .ticker-live::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.2; }
+    }
+    .ticker-scores {
+      font-family: 'DM Mono', monospace;
+      font-size: 28px; font-weight: 500;
+      color: var(--accent); letter-spacing: -0.01em;
+      line-height: 1.1;
+    }
+    .ticker-scores span { color: var(--muted2); font-size: 22px; }
+    .ticker-meta {
+      display: flex; gap: 24px; margin-top: 12px;
+    }
+    .ticker-meta-item { }
+    .ticker-meta-key {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: 0.15em; text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .ticker-meta-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; color: var(--muted);
+    }
+
+    /* ── CTA BUTTON ── */
+    .hero-cta {
+      margin: 36px 48px 0;
+      animation: fadeUp 0.8s 0.45s ease both;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent); color: #000;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 14px 28px;
+      text-decoration: none;
+      border: none; cursor: none;
+      position: relative; overflow: hidden;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary::after {
+      content: ''; position: absolute;
+      inset: 0; background: #fff;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      mix-blend-mode: overlay;
+    }
+    .btn-primary:hover::after { transform: translateX(0); }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-arrow { font-size: 18px; transition: transform 0.2s; }
+    .btn-primary:hover .btn-arrow { transform: translateX(4px); }
+
+    /* ── BOTTOM STATUS BAR ── */
+    .status-bar {
+      margin-top: auto;
+      border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      animation: fadeUp 0.8s 0.6s ease both;
+    }
+    .status-item {
+      padding: 16px 24px;
+      border-right: 1px solid var(--border);
+    }
+    .status-item:last-child { border-right: none; }
+    .status-key {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: 0.18em; text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .status-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; color: var(--text);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .status-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── RIGHT PANEL — MODULE CARDS ── */
+    .hero-right {
+      padding-top: 56px;
+      display: flex; flex-direction: column;
+      background: var(--bg);
+    }
+
+    .module-card {
+      padding: 28px 32px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      cursor: none;
+      transition: background 0.2s;
+    }
+    .module-card:hover { background: var(--bg2); }
+    .module-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 2px; background: var(--accent);
+      transform: scaleY(0); transform-origin: top;
+      transition: transform 0.25s ease;
+    }
+    .module-card:hover::before { transform: scaleY(1); }
+
+    .module-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .module-id {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: 0.2em; text-transform: uppercase;
+    }
+    .module-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1px solid;
+    }
+    .badge-critical { color: var(--red); border-color: var(--red); background: #ff4d4d11; }
+    .badge-standard { color: var(--yellow); border-color: var(--yellow); background: #f5c54211; }
+    .badge-high     { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+    .module-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px; font-weight: 400;
+      line-height: 1.2; margin-bottom: 20px;
+      letter-spacing: -0.01em;
+    }
+
+    .module-score-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .module-score-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .module-score-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted);
+    }
+    .score-bar-track {
+      height: 2px; background: var(--border2); position: relative; overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%; background: var(--accent);
+      width: 0; transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .score-bar-fill.animated { }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-left: 48px;
+      border-top: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-left {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted2);
+    }
+    .footer-left strong { color: var(--muted); font-weight: 500; }
+    .footer-right {
+      display: flex; gap: 24px;
+    }
+    .footer-right a {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted2);
+      text-decoration: none; letter-spacing: 0.06em;
+      transition: color 0.2s;
+    }
+    .footer-right a:hover { color: var(--accent); }
+    .footer-version {
+      color: var(--accent) !important;
+      border-bottom: 1px solid var(--accent);
+    }
+
+    /* ── SECTION NUMBERS BACKGROUND ── */
+    .section-num {
+      position: absolute; right: 24px; bottom: 16px;
+      font-family: 'DM Serif Display', serif;
+      font-size: 72px; font-weight: 400;
+      color: var(--border); line-height: 1;
+      user-select: none; pointer-events: none;
+      letter-spacing: -0.04em;
+    }
+
+    /* ── SCROLL FADE-IN ── */
+    .reveal {
+      opacity: 0; transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .main-wrap { grid-template-columns: 1fr; }
+      .hero-right { border-top: 1px solid var(--border); }
+      .status-bar { grid-template-columns: repeat(2, 1fr); }
+      .sidebar { display: none; }
+      .main-wrap, footer { margin-left: 0; }
+      .hero-headline { font-size: 44px; padding: 28px 24px 0; }
+      .hero-tag, .hero-sub, .hero-cta, .ticker-widget { padding-left: 24px; padding-right: 24px; }
+      .ticker-widget { margin-left: 24px; margin-right: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- ── NAVBAR ── -->
+<nav>
+  <a class="nav-logo" href="#"><span>CTT</span> — Clinical Trial Triage</a>
+  <ul class="nav-links">
+    <li><a href="#" class="active">Platform</a></li>
+    <li><a href="how-it-works.html">How It Works</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="docs.html">Docs</a></li>
+    <li><a href="triage.html" class="nav-cta">TRY IT NOW</a></li>
+  </ul>
+</nav>
+
+<!-- ── LEFT SIDEBAR ── -->
+<aside class="sidebar">
+  <span class="sidebar-label">Phase</span>
+  <div class="sidebar-dot active" title="01 — Hero"></div>
+  <div class="sidebar-line"></div>
+  <div class="sidebar-icons">
+    <div class="sidebar-icon">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="sidebar-icon" style="gap:2px;">
+      <span style="width:14px;height:1px;"></span>
+      <span style="width:8px;height:8px;border:1px solid #3d4450;display:block;"></span>
+    </div>
+    <div class="sidebar-icon">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--muted2);display:block;"></span>
+      <span style="width:12px;"></span>
+    </div>
+    <div class="sidebar-icon">
+      <span style="width:14px;"></span>
+      <span style="width:6px;margin-left:-4px;"></span>
+      <span style="width:14px;"></span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN GRID ── -->
+<div class="main-wrap">
+
+  <!-- LEFT HERO -->
+  <section class="hero-left">
+
+    <div class="hero-tag">
+      <div class="hero-tag-line"></div>
+      <span class="hero-tag-text">Clinical Trial Technology</span>
+    </div>
+
+    <h1 class="hero-headline">
+      Clinical<br>Intelligence,<br><em>Automated.</em>
+    </h1>
+
+    <p class="hero-sub">
+      Submit a clinical case. Get AI triage in seconds. Our high-precision
+      pharmaceutical instrument rejects ambiguity for structural brutalism in data.
+    </p>
+
+    <!-- TICKER -->
+    <div class="ticker-widget reveal">
+      <div class="ticker-label">
+        <span>Latest_Triage_Index</span>
+        <span class="ticker-live">LIVE</span>
+      </div>
+      <div class="ticker-scores">
+        <span id="score1">0.0000</span>
+        <span> / </span>
+        <span id="score2">0.0000</span>
+        <span> / </span>
+        <span id="score3">0.0000</span>
+      </div>
+      <div class="ticker-meta">
+        <div class="ticker-meta-item">
+          <div class="ticker-meta-key">Precision</div>
+          <div class="ticker-meta-val" id="tick-prec">—</div>
+        </div>
+        <div class="ticker-meta-item">
+          <div class="ticker-meta-key">Recall</div>
+          <div class="ticker-meta-val" id="tick-rec">—</div>
+        </div>
+        <div class="ticker-meta-item">
+          <div class="ticker-meta-key">F1_Score</div>
+          <div class="ticker-meta-val" id="tick-f1">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-cta reveal">
+      <a class="btn-primary" href="triage.html">
+        TRY IT NOW <span class="btn-arrow">→</span>
+      </a>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar reveal">
+      <div class="status-item">
+        <div class="status-key">Latency_Threshold</div>
+        <div class="status-val">&lt; 240ms</div>
+      </div>
+      <div class="status-item">
+        <div class="status-key">Data_Encryption</div>
+        <div class="status-val">AES-256-GCM</div>
+      </div>
+      <div class="status-item">
+        <div class="status-key">Validation_Status</div>
+        <div class="status-val"><span class="status-dot"></span> ISO_27001</div>
+      </div>
+      <div class="status-item">
+        <div class="status-key">API_Version</div>
+        <div class="status-val">V4.9.0-BETA</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT MODULE CARDS -->
+  <aside class="hero-right">
+
+    <div class="module-card reveal" style="position:relative;">
+      <div class="module-top">
+        <span class="module-id">Module_01</span>
+        <span class="module-badge badge-critical">Critical</span>
+      </div>
+      <div class="module-title">Adverse Event Triage</div>
+      <div class="module-score-row">
+        <span class="module-score-label">Accuracy_Rating</span>
+        <span class="module-score-val">100.0%</span>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" data-target="100"></div>
+      </div>
+      <span class="section-num">01</span>
+    </div>
+
+    <div class="module-card reveal" style="position:relative;">
+      <div class="module-top">
+        <span class="module-id">Module_02</span>
+        <span class="module-badge badge-standard">Standard</span>
+      </div>
+      <div class="module-title">Protocol Deviation Audit</div>
+      <div class="module-score-row">
+        <span class="module-score-label">Accuracy_Rating</span>
+        <span class="module-score-val">99.8%</span>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" data-target="99.8"></div>
+      </div>
+      <span class="section-num">02</span>
+    </div>
+
+    <div class="module-card reveal" style="position:relative; flex:1;">
+      <div class="module-top">
+        <span class="module-id">Module_03</span>
+        <span class="module-badge badge-high">High Load</span>
+      </div>
+      <div class="module-title">Safety Narrative Generation</div>
+      <div class="module-score-row">
+        <span class="module-score-label">Accuracy_Rating</span>
+        <span class="module-score-val">96.0%</span>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" data-target="96"></div>
+      </div>
+      <span class="section-num">03</span>
+    </div>
+
+  </aside>
+
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-left">
+    <strong>Project CTT</strong> &nbsp;|&nbsp; Built for Meta Hackathon 2026. MIT License.
+  </div>
+  <div class="footer-right">
+    <a href="#">Documentation</a>
+    <a href="#">System Status</a>
+    <a href="#" class="footer-version">V_2026.STABLE</a>
+  </div>
+</footer>
+
+<script>
+  // ── CURSOR ──
+  const cursor = document.getElementById('cursor');
+  const ring   = document.getElementById('cursor-ring');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  (function animCursor() {
+    rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18;
+    cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+    ring.style.left   = rx + 'px'; ring.style.top  = ry + 'px';
+    requestAnimationFrame(animCursor);
+  })();
+  document.querySelectorAll('a, button, .module-card, .sidebar-dot').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      cursor.style.width = '18px'; cursor.style.height = '18px';
+      ring.style.width = '50px'; ring.style.height = '50px'; ring.style.opacity = '0.8';
+    });
+    el.addEventListener('mouseleave', () => {
+      cursor.style.width = '10px'; cursor.style.height = '10px';
+      ring.style.width = '36px'; ring.style.height = '36px'; ring.style.opacity = '0.5';
+    });
+  });
+
+  // ── INTERSECTION OBSERVER (reveal + score bars) ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        // animate score bars inside this element
+        entry.target.querySelectorAll('.score-bar-fill').forEach(bar => {
+          const target = parseFloat(bar.dataset.target);
+          setTimeout(() => { bar.style.width = target + '%'; }, 200);
+        });
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Also observe module cards (they don't all have .reveal but have score bars)
+  document.querySelectorAll('.module-card').forEach((card, i) => {
+    card.classList.add('reveal');
+    card.style.transitionDelay = (i * 0.1) + 's';
+    observer.observe(card);
+  });
+
+  // ── TICKER COUNTER ANIMATION ──
+  function animateCount(el, target, decimals, duration) {
+    const start = performance.now();
+    (function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.textContent = (target * ease).toFixed(decimals);
+      if (t < 1) requestAnimationFrame(tick);
+      else el.textContent = target.toFixed(decimals);
+    })(start);
+  }
+
+  // Trigger ticker after 0.8s
+  setTimeout(() => {
+    animateCount(document.getElementById('score1'), 1.0000, 4, 1600);
+    animateCount(document.getElementById('score2'), 0.9983, 4, 1800);
+    animateCount(document.getElementById('score3'), 0.9580, 4, 2000);
+    setTimeout(() => {
+      document.getElementById('tick-prec').textContent = '0.9854';
+      document.getElementById('tick-rec').textContent  = '0.9712';
+      document.getElementById('tick-f1').textContent   = '0.9782';
+    }, 2100);
+  }, 800);
+
+  // ── BLINKING CURSOR in headline ──
+  const headline = document.querySelector('.hero-headline');
+  if (headline) {
+    const cursor_span = document.createElement('span');
+    cursor_span.style.cssText = `
+      display:inline-block; width:3px; height:0.85em;
+      background:var(--accent); margin-left:4px;
+      animation: blink 1s step-end infinite;
+      vertical-align:middle;
+    `;
+    const style = document.createElement('style');
+    style.textContent = '@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }';
+    document.head.appendChild(style);
+    headline.appendChild(cursor_span);
+  }
+</script>
+</body>
+</html>

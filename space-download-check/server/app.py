@@ -15,16 +15,13 @@ Exposes OpenEnv-compliant HTTP endpoints:
 """
 from __future__ import annotations
 
-import logging
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from openenv.core.env_server import ConcurrencyConfig, create_fastapi_app
 from pydantic import BaseModel
 
@@ -35,10 +32,6 @@ from server.openenv_env import (
     OpenEnvTriageAction,
     OpenEnvTriageObservation,
 )
-
-
-logger = logging.getLogger("uvicorn.error")
-
 
 
 @asynccontextmanager
@@ -66,10 +59,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UI_DIR = Path(__file__).resolve().parent.parent / "ui"
-if UI_DIR.exists():
-  app.mount("/ui", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
-
 _openenv_shared_env = ClinicalTrialOpenEnv()
 
 
@@ -93,11 +82,6 @@ class ResetRequest(BaseModel):
 
 class BaselineRequest(BaseModel):
     task_id: Optional[str] = None
-
-
-class InferenceStepRequest(BaseModel):
-  task_id: str = TaskID.ADVERSE_EVENT_TRIAGE
-  force_reset: bool = True
 
 
 _leaderboard: list[Dict[str, Any]] = []
@@ -164,15 +148,11 @@ async def reset(
     request: ResetRequest,
     x_session_id: Optional[str] = Header(default="default"),
 ) -> Dict[str, Any]:
-    session_id = _safe_session_id(x_session_id)
-    env = get_or_create_session(session_id)
-    logger.info("reset request: session_id=%s task_id=%s", session_id, request.task_id)
+    env = get_or_create_session(_safe_session_id(x_session_id))
     try:
         obs = env.reset(task_id=request.task_id)
-        logger.info("reset complete: session_id=%s task_id=%s", session_id, request.task_id)
         return {"observation": obs.model_dump(), "status": "ok"}
     except Exception as exc:  # noqa: BLE001
-        logger.exception("reset failed: session_id=%s task_id=%s", session_id, request.task_id)
         raise HTTPException(status_code=400, detail=str(exc))
 
 
@@ -183,32 +163,16 @@ async def step(
 ) -> Dict[str, Any]:
     session_id = _safe_session_id(x_session_id)
     env = get_or_create_session(session_id)
-    logger.info("step request: session_id=%s task_id=%s", session_id, action.task_id)
     try:
         result = env.step(action)
-        logger.info(
-            "step result: session_id=%s task_id=%s reward=%.4f done=%s",
-            session_id,
-            action.task_id,
-            float(result.reward),
-            bool(result.done),
-        )
         if result.done:
             state = env.state()
             normalized = state.cumulative_reward / max(state.step_count, 1)
             _record_episode(session_id=session_id, task_id=str(state.task_id), normalized_score=normalized)
-            logger.info(
-                "episode complete: session_id=%s task_id=%s normalized_score=%.4f",
-                session_id,
-                state.task_id,
-                float(normalized),
-            )
         return result.model_dump()
     except RuntimeError as exc:
-        logger.warning("step runtime error: session_id=%s detail=%s", session_id, str(exc))
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError as exc:
-        logger.warning("step validation error: session_id=%s detail=%s", session_id, str(exc))
         raise HTTPException(status_code=422, detail=str(exc))
 
 
@@ -332,68 +296,6 @@ async def baseline(request: Optional[BaselineRequest] = None) -> Dict[str, Any]:
     return results
 
 
-@app.post("/infer/step")
-async def infer_step(
-    request: InferenceStepRequest,
-    x_session_id: Optional[str] = Header(default="default"),
-) -> Dict[str, Any]:
-    session_id = _safe_session_id(x_session_id)
-    env = get_or_create_session(session_id)
-
-    try:
-        from inference import CLIENT as INFERENCE_CLIENT
-        from inference import choose_action
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("inference import failed")
-        raise HTTPException(status_code=500, detail=f"Inference module unavailable: {exc}")
-
-    try:
-        if request.force_reset:
-            obs = env.reset(task_id=request.task_id)
-        else:
-            state = env.state()
-            if state.done or str(state.task_id) != request.task_id:
-                obs = env.reset(task_id=request.task_id)
-            else:
-                obs = env._build_observation()  # noqa: SLF001
-
-        obs_payload = obs.model_dump()
-        action_payload = choose_action(request.task_id, obs_payload)
-        action = TriageAction.model_validate(action_payload)
-
-        result = env.step(action)
-        if result.done:
-            state = env.state()
-            normalized = state.cumulative_reward / max(state.step_count, 1)
-            _record_episode(session_id=session_id, task_id=str(state.task_id), normalized_score=normalized)
-
-        llm_enabled = INFERENCE_CLIENT is not None
-        action_source = "llm_or_fallback" if llm_enabled else "heuristic_fallback"
-
-        logger.info(
-            "infer step: session_id=%s task_id=%s source=%s reward=%.4f done=%s",
-            session_id,
-            request.task_id,
-            action_source,
-            float(result.reward),
-            bool(result.done),
-        )
-
-        return {
-            "status": "ok",
-            "session_id": session_id,
-            "task_id": request.task_id,
-            "llm_enabled": llm_enabled,
-            "action_source": action_source,
-            "action": action_payload,
-            "step": result.model_dump(),
-        }
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-
-
 @app.get("/leaderboard")
 async def leaderboard() -> Dict[str, Any]:
     top = sorted(_leaderboard, key=lambda item: item.get("mean_score", 0.0), reverse=True)[:10]
@@ -421,15 +323,12 @@ async def root() -> Dict[str, Any]:
         "endpoints": [
             "/reset",
             "/step",
-            "/infer/step",
             "/state",
             "/tasks",
             "/grader",
             "/baseline",
             "/leaderboard",
             "/health",
-            "/ui/",
-            "/triage",
             "/openenv/reset",
             "/openenv/step",
             "/openenv/state",
@@ -438,13 +337,6 @@ async def root() -> Dict[str, Any]:
             "/openenv/health",
         ],
     }
-
-
-@app.get("/triage")
-async def triage_ui() -> RedirectResponse:
-  if not UI_DIR.exists():
-    raise HTTPException(status_code=404, detail="UI folder not found")
-  return RedirectResponse(url="/ui/triage.html")
 
 
 WEB_UI_HTML = """<!DOCTYPE html>

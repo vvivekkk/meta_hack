@@ -161,18 +161,19 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
 
 @app.post("/reset")
 async def reset(
-    request: ResetRequest,
+  request: Optional[ResetRequest] = None,
     x_session_id: Optional[str] = Header(default="default"),
 ) -> Dict[str, Any]:
     session_id = _safe_session_id(x_session_id)
     env = get_or_create_session(session_id)
-    logger.info("reset request: session_id=%s task_id=%s", session_id, request.task_id)
+  task_id = request.task_id if request is not None else TaskID.ADVERSE_EVENT_TRIAGE
+  logger.info("reset request: session_id=%s task_id=%s", session_id, task_id)
     try:
-        obs = env.reset(task_id=request.task_id)
-        logger.info("reset complete: session_id=%s task_id=%s", session_id, request.task_id)
+    obs = env.reset(task_id=task_id)
+    logger.info("reset complete: session_id=%s task_id=%s", session_id, task_id)
         return {"observation": obs.model_dump(), "status": "ok"}
     except Exception as exc:  # noqa: BLE001
-        logger.exception("reset failed: session_id=%s task_id=%s", session_id, request.task_id)
+    logger.exception("reset failed: session_id=%s task_id=%s", session_id, task_id)
         raise HTTPException(status_code=400, detail=str(exc))
 
 

@@ -5,7 +5,6 @@ httpx==0.28.1
 groq==0.18.0
 python-multipart==0.0.20
 openenv-core==0.2.2
-stable-baselines3==2.7.1
 gymnasium==1.2.3
 numpy==2.3.4
 pandas==2.3.3

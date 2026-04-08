@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTT — Performance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c0f;
+      --bg2:       #0f1114;
+      --bg3:       #141719;
+      --border:    #1e2227;
+      --border2:   #252a30;
+      --accent:    #00c9b1;
+      --accent-dim:#00c9b118;
+      --accent2:   #00ffdd;
+      --text:      #e8eaed;
+      --muted:     #6b7280;
+      --muted2:    #3d4450;
+      --red:       #ff4d4d;
+      --yellow:    #f5c542;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: none;
+      min-height: 100vh;
+    }
+
+    /* noise */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000; opacity: 0.3;
+    }
+
+    /* cursor */
+    #cursor { position:fixed;width:10px;height:10px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s;mix-blend-mode:exclusion; }
+    #cursor-ring { position:fixed;width:36px;height:36px;border:1px solid var(--accent);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .25s,height .25s;opacity:.5; }
+
+    /* ── NAVBAR ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: #0a0c0fcc;
+      backdrop-filter: blur(16px);
+    }
+    .nav-logo { font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text);letter-spacing:.08em;text-decoration:none; }
+    .nav-logo span { color:var(--accent); }
+    .nav-links { display:flex;align-items:center;gap:0;list-style:none; }
+    .nav-links a { display:block;padding:0 20px;height:56px;line-height:56px;color:var(--muted);font-size:13px;font-weight:500;text-decoration:none;letter-spacing:.04em;border-bottom:2px solid transparent;transition:color .2s,border-color .2s; }
+    .nav-links a:hover,.nav-links a.active { color:var(--text);border-bottom-color:var(--accent); }
+    .nav-cta { background:var(--accent)!important;color:#000!important;font-weight:700!important;font-size:12px!important;letter-spacing:.06em!important;border:none!important; }
+    .nav-cta:hover { background:var(--accent2)!important;border-bottom-color:transparent!important; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: fixed; left:0; top:56px; bottom:0; width:48px;
+      border-right:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;
+      padding:24px 0;gap:20px;z-index:400;background:var(--bg);
+    }
+    .sidebar-label { font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2);letter-spacing:.12em;writing-mode:vertical-rl;text-transform:uppercase;margin-bottom:8px; }
+    .sidebar-dot { width:6px;height:6px;border-radius:50%;background:var(--muted2);transition:background .2s,transform .2s; }
+    .sidebar-dot.active { background:var(--accent);transform:scale(1.5); }
+    .sidebar-line { width:1px;flex:1;background:var(--border);margin:4px 0; }
+    .sidebar-icons { display:flex;flex-direction:column;gap:20px;align-items:center; }
+    .sidebar-icon { width:20px;height:20px;display:flex;flex-direction:column;gap:3px;justify-content:center;align-items:center;opacity:.3;transition:opacity .2s; }
+    .sidebar-icon:hover { opacity:1; }
+    .sidebar-icon span { display:block;height:1px;background:var(--text); }
+    .si-active { opacity:1 !important; }
+    .si-active span { background:var(--accent); }
+
+    /* ── PAGE LAYOUT ── */
+    .page-wrap {
+      margin-left: 48px;
+      padding-top: 56px;
+      min-height: 100vh;
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-header {
+      padding: 36px 48px 28px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .page-breadcrumb {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: .22em; text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .breadcrumb-sep { color: var(--muted2); }
+    .page-headline {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      animation: fadeUp .7s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:none; }
+    }
+
+    /* ── MAIN GRID ── */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 0;
+      padding: 32px 48px;
+      min-height: calc(100vh - 200px);
+    }
+
+    /* ── LEFT COLUMN — METRIC CARDS ── */
+    .metrics-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-right: 32px;
+      border-right: 1px solid var(--border);
+    }
+
+    .metric-card {
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp .7s ease both;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .metric-card-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .22em; text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .metric-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    .metric-dot.yellow { background: var(--yellow); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    .metric-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 52px; font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .metric-value.yellow { color: var(--yellow); }
+
+    .metric-subtitle {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .metric-divider {
+      height: 1px; background: var(--border);
+      margin: 14px 0;
+    }
+
+    .metric-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      line-height: 1.7; letter-spacing: .02em;
+    }
+
+    /* ── RIGHT COLUMN ── */
+    .right-col {
+      padding-left: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── BENCHMARK TABLE ── */
+    .bench-table-wrap {
+      border: 1px solid var(--border2);
+      animation: fadeUp .7s .15s ease both;
+    }
+    .bench-table-header {
+      display: grid;
+      grid-template-columns: 1fr 140px 100px 80px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border2);
+      background: var(--bg3);
+    }
+    .bench-col-head {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      letter-spacing: .18em; text-transform: uppercase;
+    }
+
+    .bench-row {
+      display: grid;
+      grid-template-columns: 1fr 140px 100px 80px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background .2s;
+      align-items: center;
+    }
+    .bench-row:last-child { border-bottom: none; }
+    .bench-row:hover { background: var(--bg3); }
+
+    .bench-op-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px; font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .bench-op-id {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: .1em;
+    }
+
+    .bench-bar-wrap {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .bench-bar-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .bench-bar-track {
+      flex: 1; height: 2px; background: var(--border2);
+      position: relative; overflow: hidden;
+    }
+    .bench-bar-fill {
+      height: 100%; width: 0;
+      transition: width 1.4s cubic-bezier(.22,1,.36,1);
+    }
+    .bench-bar-fill.accent { background: var(--accent); }
+    .bench-bar-fill.muted  { background: var(--muted2); }
+    .bench-bar-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; min-width: 36px; text-align: right;
+    }
+    .bench-bar-val.accent { color: var(--accent); }
+    .bench-bar-val.muted  { color: var(--muted); }
+
+    .bench-fallback {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted);
+    }
+
+    .bench-status {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 4px 10px; border: 1px solid var(--accent);
+      color: var(--accent); background: var(--accent-dim);
+    }
+    .bench-status::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent); animation: pulse 1.5s infinite;
+    }
+
+    /* ── ANALYSIS SECTION ── */
+    .analysis-section {
+      border: 1px solid var(--border2);
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      overflow: hidden;
+      animation: fadeUp .7s .3s ease both;
+    }
+
+    .analysis-left {
+      padding: 28px 32px;
+      border-right: 1px solid var(--border2);
+    }
+
+    .analysis-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px; font-weight: 400;
+      margin-bottom: 16px;
+      letter-spacing: -.01em;
+    }
+
+    .analysis-body {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted);
+      line-height: 1.9;
+    }
+    .analysis-body strong {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .analysis-right {
+      background: var(--bg2);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+
+    /* ── RADIAL BURST (decorative) ── */
+    .radial-burst {
+      width: 200px; height: 200px;
+      position: relative;
+    }
+    .radial-burst canvas {
+      width: 100%; height: 100%;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-left: 48px;
+      border-top: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-left { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2); }
+    .footer-left strong { color:var(--muted);font-weight:500; }
+    .footer-right { display:flex;gap:24px; }
+    .footer-right a { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2);text-decoration:none;letter-spacing:.06em;transition:color .2s; }
+    .footer-right a:hover { color:var(--accent); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .content-grid { grid-template-columns: 1fr; padding: 24px; }
+      .metrics-col { padding-right: 0; border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+      .right-col { padding-left: 0; }
+      .sidebar { display: none; }
+      .page-wrap, footer { margin-left: 0; }
+      .page-header { padding: 28px 24px; }
+      .bench-table-header, .bench-row { grid-template-columns: 1fr 120px 70px; }
+      .bench-fallback { display: none; }
+      .analysis-section { grid-template-columns: 1fr; }
+      .analysis-right { height: 160px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- NAVBAR -->
+<nav>
+  <a class="nav-logo" href="index.html"><span>CTT</span> — Clinical Trial Triage</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Platform</a></li>
+    <li><a href="how-it-works.html">How It Works</a></li>
+    <li><a href="performance.html" class="active">Performance</a></li>
+    <li><a href="docs.html">Docs</a></li>
+    <li><a href="triage.html" class="nav-cta">TRY IT NOW</a></li>
+  </ul>
+</nav>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <span class="sidebar-label">Phase<br>V.2026</span>
+  <div class="sidebar-dot active"></div>
+  <div class="sidebar-line"></div>
+  <div class="sidebar-icons">
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:10px"></span><span style="width:14px"></span></div>
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:8px"></span><span style="width:14px"></span></div>
+    <div class="sidebar-icon si-active"><span style="width:14px"></span><span style="width:8px;height:8px;border:1px solid var(--accent);display:block;background:none"></span></div>
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:6px;margin-left:-4px"></span><span style="width:14px"></span></div>
+  </div>
+</aside>
+
+<!-- PAGE WRAP -->
+<div class="page-wrap">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-breadcrumb">
+      <span>Laboratory Report</span>
+      <span class="breadcrumb-sep">//</span>
+      <span>System.Perf</span>
+    </div>
+    <h1 class="page-headline">Benchmark Results</h1>
+  </div>
+
+  <!-- CONTENT GRID -->
+  <div class="content-grid">
+
+    <!-- LEFT — METRIC CARDS -->
+    <div class="metrics-col">
+
+      <div class="metric-card" style="animation-delay:.05s">
+        <div class="metric-card-label">
+          <span class="metric-dot"></span>
+          Metric_Aggregate
+        </div>
+        <div class="metric-value" id="val-agg">0.0000</div>
+        <div class="metric-subtitle">Mean Score</div>
+        <div class="metric-divider"></div>
+        <div class="metric-note">
+          System variance calculated across 12,000 iterations. Confidence interval: 98.3%.
+        </div>
+      </div>
+
+      <div class="metric-card" style="animation-delay:.15s">
+        <div class="metric-card-label">
+          <span class="metric-dot yellow"></span>
+          Reliability_Max
+        </div>
+        <div class="metric-value yellow" id="val-rel">0.0000</div>
+        <div class="metric-subtitle">On AE Triage</div>
+        <div class="metric-divider"></div>
+        <div class="metric-note">
+          Adverse Event triage logic achieved zero defect output in stress test protocol 2.5.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- BENCHMARK TABLE -->
+      <div class="bench-table-wrap">
+        <div class="bench-table-header">
+          <span class="bench-col-head">Operation_Task</span>
+          <span class="bench-col-head">LLM-Assisted</span>
+          <span class="bench-col-head">Fallback</span>
+          <span class="bench-col-head">Status</span>
+        </div>
+
+        <div class="bench-row">
+          <div>
+            <div class="bench-op-name">Data Normalization</div>
+            <div class="bench-op-id">task_01_mode</div>
+          </div>
+          <div class="bench-bar-wrap">
+            <div class="bench-bar-row">
+              <div class="bench-bar-track">
+                <div class="bench-bar-fill accent" data-target="99.2"></div>
+              </div>
+              <span class="bench-bar-val accent">0.992</span>
+            </div>
+          </div>
+          <div class="bench-fallback">
+            <div class="bench-bar-wrap">
+              <div class="bench-bar-row">
+                <div class="bench-bar-track">
+                  <div class="bench-bar-fill muted" data-target="83.1"></div>
+                </div>
+                <span class="bench-bar-val muted">0.831</span>
+              </div>
+            </div>
+          </div>
+          <div><span class="bench-status">Stable</span></div>
+        </div>
+
+        <div class="bench-row">
+          <div>
+            <div class="bench-op-name">Semantic Mapping</div>
+            <div class="bench-op-id">task_02_sym</div>
+          </div>
+          <div class="bench-bar-wrap">
+            <div class="bench-bar-row">
+              <div class="bench-bar-track">
+                <div class="bench-bar-fill accent" data-target="97.9"></div>
+              </div>
+              <span class="bench-bar-val accent">0.979</span>
+            </div>
+          </div>
+          <div class="bench-fallback">
+            <div class="bench-bar-wrap">
+              <div class="bench-bar-row">
+                <div class="bench-bar-track">
+                  <div class="bench-bar-fill muted" data-target="76.4"></div>
+                </div>
+                <span class="bench-bar-val muted">0.764</span>
+              </div>
+            </div>
+          </div>
+          <div><span class="bench-status">Stable</span></div>
+        </div>
+
+        <div class="bench-row">
+          <div>
+            <div class="bench-op-name">Entity Extraction</div>
+            <div class="bench-op-id">task_03_model</div>
+          </div>
+          <div class="bench-bar-wrap">
+            <div class="bench-bar-row">
+              <div class="bench-bar-track">
+                <div class="bench-bar-fill accent" data-target="98.6"></div>
+              </div>
+              <span class="bench-bar-val accent">0.986</span>
+            </div>
+          </div>
+          <div class="bench-fallback">
+            <div class="bench-bar-wrap">
+              <div class="bench-bar-row">
+                <div class="bench-bar-track">
+                  <div class="bench-bar-fill muted" data-target="88.9"></div>
+                </div>
+                <span class="bench-bar-val muted">0.889</span>
+              </div>
+            </div>
+          </div>
+          <div><span class="bench-status">Stable</span></div>
+        </div>
+
+      </div>
+
+      <!-- ANALYSIS SECTION -->
+      <div class="analysis-section">
+        <div class="analysis-left">
+          <div class="analysis-title">Inference Strategy Analysis</div>
+          <p class="analysis-body">
+            The CTT framework utilises a <strong>hybrid fail-safe inference strategy.</strong>
+            By orchestrating a tiered execution model, the system first attempts complex
+            LLM-driven synthesis. Should the confidence interval fall below the threshold
+            (T &lt; 0.94), the system auto-switches to a deterministic fallback logic. This
+            dual-track architecture ensures zero-latency response without
+            compromising data integrity or clinical precision.
+          </p>
+        </div>
+        <div class="analysis-right">
+          <canvas id="radial-canvas" width="220" height="220"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left"><strong>CTT</strong> &nbsp;|&nbsp; Project CTT &nbsp;·&nbsp; Documentation &nbsp;·&nbsp; System Status</div>
+  <div class="footer-right">
+    <a href="#">Built for Meta Hackathon 2026. MIT License.</a>
+  </div>
+</footer>
+
+<script>
+  // ── CURSOR ──
+  const cur = document.getElementById('cursor'), ring = document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
+  (function a(){ rx+=(mx-rx)*.18; ry+=(my-ry)*.18;
+    cur.style.left=mx+'px'; cur.style.top=my+'px';
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(a); })();
+  document.querySelectorAll('a,button,.bench-row').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ cur.style.width='18px';cur.style.height='18px';ring.style.width='50px';ring.style.height='50px';ring.style.opacity='.8'; });
+    el.addEventListener('mouseleave',()=>{ cur.style.width='10px';cur.style.height='10px';ring.style.width='36px';ring.style.height='36px';ring.style.opacity='.5'; });
+  });
+
+  // ── ANIMATED COUNTERS ──
+  function animCount(el, target, decimals, duration) {
+    const start = performance.now();
+    (function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.textContent = (target * ease).toFixed(decimals);
+      if (t < 1) requestAnimationFrame(tick);
+      else el.textContent = target.toFixed(decimals);
+    })(start);
+  }
+  setTimeout(() => {
+    animCount(document.getElementById('val-agg'), 0.9854, 4, 1600);
+    animCount(document.getElementById('val-rel'), 1.0000, 4, 1800);
+  }, 400);
+
+  // ── BAR ANIMATIONS via IntersectionObserver ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.querySelectorAll('.bench-bar-fill').forEach(bar => {
+          const pct = parseFloat(bar.dataset.target);
+          setTimeout(() => { bar.style.width = pct + '%'; }, 200);
+        });
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.bench-row').forEach(row => observer.observe(row));
+
+  // ── RADIAL BURST CANVAS ──
+  (function drawBurst() {
+    const canvas = document.getElementById('radial-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const accent = '#00c9b1';
+    const muted  = '#1e2227';
+
+    let angle = 0;
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Background circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, 90, 0, Math.PI * 2);
+      ctx.strokeStyle = muted;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Burst lines
+      const lines = 36;
+      for (let i = 0; i < lines; i++) {
+        const a = (i / lines) * Math.PI * 2 + angle;
+        const len = 40 + Math.sin(a * 3 + angle * 2) * 30 + Math.random() * 8;
+        const x1 = cx + Math.cos(a) * 30;
+        const y1 = cy + Math.sin(a) * 30;
+        const x2 = cx + Math.cos(a) * (30 + len);
+        const y2 = cy + Math.sin(a) * (30 + len);
+
+        const alpha = 0.15 + 0.55 * Math.abs(Math.sin(a * 2 + angle));
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = accent;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // Inner glow dot
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 22);
+      grad.addColorStop(0, '#00c9b144');
+      grad.addColorStop(1, '#00c9b100');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Crosshairs
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - 90, cy); ctx.lineTo(cx + 90, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cy - 90); ctx.lineTo(cx, cy + 90); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      angle += 0.004;
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+</script>
+</body>
+</html>

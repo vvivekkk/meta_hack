@@ -1,0 +1,14 @@
+# Local Python environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+# Local outputs and runtime artifacts
+outputs/
+*.log
+.env
+myemv/
+
+

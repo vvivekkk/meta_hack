@@ -1,0 +1,61 @@
+name: clinical-trial-triage
+version: "1.0.0"
+description: >
+  OpenEnv environment simulating real-world clinical trial operations —
+  adverse event triage, protocol deviation auditing, and ICH E2B safety
+  narrative generation. Designed for training and evaluating AI agents
+  on pharma regulatory workflows.
+author: vinay
+license: MIT
+tags:
+  - openenv
+  - clinical-trials
+  - pharmacovigilance
+  - regulatory
+  - healthcare
+  - real-world
+
+tasks:
+  - id: adverse_event_triage
+    difficulty: easy
+    max_steps: 3
+    description: "Classify adverse event severity, MedDRA code, SAE flag, and reporting timeline per ICH E2A."
+
+  - id: protocol_deviation_audit
+    difficulty: medium
+    max_steps: 3
+    description: "Audit GCP protocol deviation findings, assign site risk score, and determine CAPA obligation."
+
+  - id: safety_narrative_generation
+    difficulty: hard
+    max_steps: 1
+    description: "Generate a complete ICH E2B(R3)-compliant ICSR narrative with causality assessment."
+
+observation_space:
+  type: object
+  description: "Task-specific nested Pydantic observation containing structured clinical case data."
+
+action_space:
+  type: object
+  description: "Typed Pydantic TriageAction wrapping task-specific sub-action (AETriageAction | DeviationAuditAction | SafetyNarrativeAction)."
+
+reward_range: [0.0, 1.0]
+reward_description: >
+  Dense component-wise rewards at every step. No single binary end-of-episode signal.
+  Partial credit for near-correct clinical classifications, fuzzy MedDRA matching,
+  risk-score proximity scoring, and regulatory completeness checks.
+
+endpoints:
+  base_url: "http://localhost:8000"
+  reset: "POST /reset"
+  step: "POST /step"
+  state: "GET /state"
+  openenv_reset: "POST /openenv/reset"
+  openenv_step: "POST /openenv/step"
+  openenv_state: "GET /openenv/state"
+  health: "GET /health"
+
+docker:
+  port: 7860
+  build: "docker build -t clinical-trial-triage ."
+  run: "docker run -p 7860:7860 clinical-trial-triage"

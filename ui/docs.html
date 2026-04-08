@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTT — How It Works</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c0f;
+      --bg2:       #0f1114;
+      --bg3:       #141719;
+      --border:    #1e2227;
+      --border2:   #252a30;
+      --accent:    #00c9b1;
+      --accent-dim:#00c9b118;
+      --accent2:   #00ffdd;
+      --text:      #e8eaed;
+      --muted:     #6b7280;
+      --muted2:    #3d4450;
+      --red:       #ff4d4d;
+      --yellow:    #f5c542;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: none;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000; opacity: 0.3;
+    }
+
+    #cursor { position:fixed;width:10px;height:10px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s;mix-blend-mode:exclusion; }
+    #cursor-ring { position:fixed;width:36px;height:36px;border:1px solid var(--accent);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .25s,height .25s;opacity:.5; }
+
+    /* NAVBAR */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: #0a0c0fcc;
+      backdrop-filter: blur(16px);
+    }
+    .nav-logo { font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text);letter-spacing:.08em;text-decoration:none; }
+    .nav-logo span { color:var(--accent); }
+    .nav-links { display:flex;align-items:center;gap:0;list-style:none; }
+    .nav-links a { display:block;padding:0 20px;height:56px;line-height:56px;color:var(--muted);font-size:13px;font-weight:500;text-decoration:none;letter-spacing:.04em;border-bottom:2px solid transparent;transition:color .2s,border-color .2s; }
+    .nav-links a:hover,.nav-links a.active { color:var(--text);border-bottom-color:var(--accent); }
+    .nav-cta { background:var(--accent)!important;color:#000!important;font-weight:700!important;font-size:12px!important;letter-spacing:.06em!important;border:none!important; }
+    .nav-cta:hover { background:var(--accent2)!important;border-bottom-color:transparent!important; }
+
+    /* SIDEBAR */
+    .sidebar {
+      position: fixed; left:0; top:56px; bottom:0; width:48px;
+      border-right:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;
+      padding:24px 0;gap:20px;z-index:400;background:var(--bg);
+    }
+    .sidebar-label { font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2);letter-spacing:.12em;writing-mode:vertical-rl;text-transform:uppercase;margin-bottom:8px; }
+    .sidebar-dot { width:6px;height:6px;border-radius:50%;background:var(--muted2);transition:background .2s,transform .2s; }
+    .sidebar-dot.active { background:var(--accent);transform:scale(1.5); }
+    .sidebar-line { width:1px;flex:1;background:var(--border);margin:4px 0; }
+    .sidebar-icons { display:flex;flex-direction:column;gap:20px;align-items:center; }
+    .sidebar-icon { width:20px;height:20px;display:flex;flex-direction:column;gap:3px;justify-content:center;align-items:center;opacity:.3;transition:opacity .2s; }
+    .sidebar-icon:hover { opacity:1; }
+    .sidebar-icon span { display:block;height:1px;background:var(--text); }
+    .si-active { opacity:1!important; }
+    .si-active span { background:var(--accent); }
+
+    /* PAGE WRAP */
+    .page-wrap {
+      margin-left: 48px;
+      padding-top: 56px;
+    }
+
+    /* HERO SECTION */
+    .hero-section {
+      padding: 52px 56px 44px;
+      border-bottom: 1px solid var(--border);
+      max-width: 900px;
+    }
+    .hero-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--accent);
+      letter-spacing: .28em; text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero-headline {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(36px, 5vw, 62px);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      margin-bottom: 20px;
+      animation: fadeUp .7s ease both;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+
+    .hero-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--muted);
+      line-height: 1.85; max-width: 560px;
+      animation: fadeUp .7s .1s ease both;
+    }
+
+    /* THREE TASK CARDS */
+    .tasks-section {
+      padding: 40px 56px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tasks-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .task-card {
+      background: var(--bg);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      transition: background .2s;
+    }
+    .task-card:hover { background: var(--bg2); }
+    .task-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent);
+      transform: scaleX(0); transform-origin: left;
+      transition: transform .3s ease;
+    }
+    .task-card:hover::before { transform: scaleX(1); }
+
+    .task-card-top {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .task-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: .18em;
+    }
+    .task-arrow {
+      font-size: 12px; color: var(--muted2);
+      transition: color .2s, transform .2s;
+    }
+    .task-card:hover .task-arrow { color: var(--accent); transform: translate(2px,-2px); }
+
+    .task-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px; font-weight: 400;
+      letter-spacing: -.01em;
+    }
+    .task-desc {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* Code snippet inside card */
+    .task-code {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      padding: 12px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      line-height: 1.8;
+      flex: 1;
+      position: relative;
+    }
+    .task-code::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 8px; color: var(--accent);
+      letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .task-code .key { color: var(--muted); }
+    .task-code .val { color: var(--accent); }
+    .task-code .str { color: var(--yellow); }
+
+    .task-card-footer {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--accent);
+      letter-spacing: .12em; text-transform: uppercase;
+      border-top: 1px solid var(--border2);
+      padding-top: 12px;
+    }
+
+    /* PIPELINE SECTION */
+    .pipeline-section {
+      padding: 56px 56px 64px;
+      text-align: center;
+    }
+
+    .pipeline-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 400;
+      letter-spacing: -.02em;
+      margin-bottom: 8px;
+    }
+    .pipeline-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted2);
+      letter-spacing: .22em; text-transform: uppercase;
+      margin-bottom: 48px;
+    }
+
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: nowrap;
+    }
+
+    .pipeline-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 90px;
+    }
+
+    .pipeline-box {
+      width: 80px; height: 80px;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      transition: border-color .2s, background .2s;
+    }
+    .pipeline-node.active .pipeline-box {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      box-shadow: 0 0 20px #00c9b122;
+    }
+    .pipeline-node.active .pipeline-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent);
+    }
+
+    .pipeline-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+    .pipeline-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--text);
+      letter-spacing: .1em; text-transform: uppercase;
+      text-align: center;
+    }
+    .pipeline-sublabel {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px; color: var(--muted2);
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .pipeline-arrow {
+      width: 48px; height: 1px;
+      background: var(--border2);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .pipeline-arrow::after {
+      content: '';
+      position: absolute; right: -4px; top: -3px;
+      border: 4px solid transparent;
+      border-left-color: var(--muted2);
+    }
+
+    /* SVG icons in pipeline */
+    .p-icon {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .p-icon svg { width: 100%; height: 100%; }
+
+    /* FOOTER */
+    footer {
+      margin-left: 48px;
+      border-top: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-left { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2); }
+    .footer-left strong { color:var(--muted);font-weight:500; }
+    .footer-right { display:flex;gap:24px; }
+    .footer-right a { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2);text-decoration:none;letter-spacing:.06em;transition:color .2s; }
+    .footer-right a:hover { color:var(--accent); }
+
+    @media (max-width:900px) {
+      .tasks-grid { grid-template-columns: 1fr; }
+      .sidebar { display:none; }
+      .page-wrap, footer { margin-left:0; }
+      .hero-section, .tasks-section, .pipeline-section { padding-left:24px; padding-right:24px; }
+      .pipeline-flow { gap: 0; overflow-x: auto; padding-bottom:16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <a class="nav-logo" href="index.html"><span>CTT</span> — Clinical Trial Triage</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Platform</a></li>
+    <li><a href="how-it-works.html" class="active">How It Works</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="docs.html">Docs</a></li>
+    <li><a href="triage.html" class="nav-cta">TRY IT NOW</a></li>
+  </ul>
+</nav>
+
+<aside class="sidebar">
+  <span class="sidebar-label">Infra</span>
+  <div class="sidebar-dot active"></div>
+  <div class="sidebar-line"></div>
+  <div class="sidebar-icons">
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:10px"></span><span style="width:14px"></span></div>
+    <div class="sidebar-icon si-active"><span style="width:14px"></span><span style="width:8px;height:8px;border:1px solid var(--accent);display:block;background:none"></span></div>
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:10px"></span><span style="width:14px"></span></div>
+    <div class="sidebar-icon"><span style="width:14px"></span><span style="width:6px;margin-left:-4px"></span><span style="width:14px"></span></div>
+  </div>
+</aside>
+
+<div class="page-wrap">
+
+  <!-- HERO -->
+  <div class="hero-section">
+    <div class="hero-tag">Methodology</div>
+    <h1 class="hero-headline">Three Tasks.<br>One Environment.</h1>
+    <p class="hero-sub">
+      The Clinical Trial Transformer (CTT) environment is engineered to isolate and evaluate
+      medical reasoning agents across three distinct pillars of pharmaceutical documentation.
+    </p>
+  </div>
+
+  <!-- THREE TASK CARDS -->
+  <div class="tasks-section">
+    <div class="tasks-grid">
+
+      <!-- AE Triage -->
+      <div class="task-card">
+        <div class="task-card-top">
+          <span class="task-num">T — 01</span>
+          <span class="task-arrow">↗</span>
+        </div>
+        <div class="task-title">AE Triage</div>
+        <div class="task-desc">
+          Processing adverse event reports from raw clinician notes into structured safety intake data.
+          Precision in causality assessment is paramount.
+        </div>
+        <div class="task-code" data-label="// Input_Schema">
+          <span class="str">"task_id"</span><span class="key">: </span><span class="val">"AE_TRIAGE_10"</span>,<br>
+          <span class="str">"ae_report"</span><span class="key">: </span><span class="val">"string"</span>,<br>
+          <span class="str">"is_serious"</span><span class="key">: </span><span class="val">true</span>
+        </div>
+        <div class="task-card-footer">Engine Results →</div>
+      </div>
+
+      <!-- PD Audit -->
+      <div class="task-card">
+        <div class="task-card-top">
+          <span class="task-num">T — 02</span>
+          <span class="task-arrow">↗</span>
+        </div>
+        <div class="task-title">PD Audit</div>
+        <div class="task-desc">
+          Identifying protocol deviations across longitudinal patient records. Validating clinical compliance
+          against study-specific mandates.
+        </div>
+        <div class="task-code" data-label="// Output_Schema">
+          <span class="str">"deviation_type"</span><span class="key">: </span><span class="val">"MAJOR/MINOR"</span>,<br>
+          <span class="str">"capa_required"</span><span class="key">: </span><span class="val">true</span>,<br>
+          <span class="str">"risk_score"</span><span class="key">: </span><span class="val">8.2</span>
+        </div>
+        <div class="task-card-footer">Engine Results →</div>
+      </div>
+
+      <!-- Safety Narrative -->
+      <div class="task-card">
+        <div class="task-card-top">
+          <span class="task-num">T — 03</span>
+          <span class="task-arrow">↗</span>
+        </div>
+        <div class="task-title">Safety Narrative</div>
+        <div class="task-desc">
+          Synthesising complex medical histories into coherent, regulatory-ready narratives. High focus
+          on linguistic-critical continuity.
+        </div>
+        <div class="task-code" data-label="// Result_Schema">
+          <span class="str">"narrative_text"</span><span class="key">: </span><span class="val">"string"</span>,<br>
+          <span class="str">"causality"</span><span class="key">: </span><span class="val">"possibly_..."</span>,<br>
+          <span class="str">"key_temporal_flags"</span><span class="key">: </span><span class="val">[]</span>
+        </div>
+        <div class="task-card-footer">Engine Results →</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- INFERENCE PIPELINE ARCHITECTURE -->
+  <div class="pipeline-section">
+    <div class="pipeline-title">Inference Pipeline Architecture</div>
+    <div class="pipeline-sub">End-to-End Environment Orchestration</div>
+
+    <div class="pipeline-flow">
+
+      <div class="pipeline-node">
+        <div class="pipeline-box">
+          <div class="p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 9h6M9 12h6M9 15h4"/>
+            </svg>
+          </div>
+          <div class="pipeline-label" style="color:var(--muted2)">Client</div>
+        </div>
+        <div class="pipeline-sublabel">Agent<br>Request</div>
+      </div>
+
+      <div class="pipeline-arrow"></div>
+
+      <div class="pipeline-node">
+        <div class="pipeline-box">
+          <div class="p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            </svg>
+          </div>
+          <div class="pipeline-label" style="color:var(--muted2)">FastAPI</div>
+        </div>
+        <div class="pipeline-sublabel">Routing<br>Layer</div>
+      </div>
+
+      <div class="pipeline-arrow"></div>
+
+      <div class="pipeline-node active">
+        <div class="pipeline-box">
+          <div class="p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00c9b1" stroke-width="1.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="pipeline-label">State<br>Machine</div>
+          <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:.1em;">ACTIVE</div>
+        </div>
+        <div class="pipeline-sublabel" style="color:var(--accent)">Task<br>Execution</div>
+      </div>
+
+      <div class="pipeline-arrow"></div>
+
+      <div class="pipeline-node">
+        <div class="pipeline-box">
+          <div class="p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5">
+              <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+            </svg>
+          </div>
+          <div class="pipeline-label" style="color:var(--muted2)">Graders</div>
+        </div>
+        <div class="pipeline-sublabel">Scoring<br>Engine</div>
+      </div>
+
+      <div class="pipeline-arrow"></div>
+
+      <div class="pipeline-node">
+        <div class="pipeline-box">
+          <div class="p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="pipeline-label" style="color:var(--muted2)">Reward</div>
+        </div>
+        <div class="pipeline-sublabel">Optimisation<br>Signal</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-left"><strong>CTT</strong> &nbsp;|&nbsp; Project CTT &nbsp;·&nbsp; Documentation &nbsp;·&nbsp; System Status</div>
+  <div class="footer-right">
+    <a href="#">Built for Meta Hackathon 2026. MIT License.</a>
+  </div>
+</footer>
+
+<script>
+  const cur = document.getElementById('cursor'), ring = document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
+  (function a(){ rx+=(mx-rx)*.18; ry+=(my-ry)*.18;
+    cur.style.left=mx+'px'; cur.style.top=my+'px';
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(a); })();
+  document.querySelectorAll('a,button,.task-card,.pipeline-node').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ cur.style.width='18px';cur.style.height='18px';ring.style.width='50px';ring.style.height='50px';ring.style.opacity='.8'; });
+    el.addEventListener('mouseleave',()=>{ cur.style.width='10px';cur.style.height='10px';ring.style.width='36px';ring.style.height='36px';ring.style.opacity='.5'; });
+  });
+
+  // Reveal on scroll
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.style.opacity='1'; e.target.style.transform='none'; } });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.task-card,.pipeline-node').forEach((el,i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(16px)';
+    el.style.transition = `opacity .5s ${i*0.08}s ease, transform .5s ${i*0.08}s ease`;
+    obs.observe(el);
+  });
+</script>
+</body>
+</html>

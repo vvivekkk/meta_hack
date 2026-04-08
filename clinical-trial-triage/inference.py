@@ -61,6 +61,11 @@ VALID_CAUSALITY = {
 }
 
 
+def emit_marker(marker: str, payload: Dict[str, Any]) -> None:
+    """Emit machine-readable markers expected by submission evaluators."""
+    print(f"[{marker}] {json.dumps(payload, ensure_ascii=True, separators=(',', ':'))}", flush=True)
+
+
 def _make_client() -> Optional[OpenAI]:
     if not API_KEY:
         return None
@@ -1014,6 +1019,14 @@ def run_task(task_id: str) -> dict:
     session_id = f"infer-{task_id}-{uuid.uuid4().hex[:8]}"
     rewards: list[float] = []
     error: Optional[str] = None
+    emit_marker(
+        "START",
+        {
+            "task_id": task_id,
+            "session_id": session_id,
+            "model": MODEL_NAME,
+        },
+    )
 
     try:
         payload = env_reset(task_id, session_id)
@@ -1045,6 +1058,16 @@ def run_task(task_id: str) -> dict:
         reward = float(step_result.get("reward", 0.0))
         rewards.append(reward)
         payload = step_result
+        emit_marker(
+            "STEP",
+            {
+                "task_id": task_id,
+                "session_id": session_id,
+                "step": len(rewards),
+                "reward": round(reward, 6),
+                "done": bool(step_result.get("done", False)),
+            },
+        )
         print(f"  reward={reward:.4f} done={bool(step_result.get('done', False))}")
 
         if bool(step_result.get("done", False)):
@@ -1062,6 +1085,16 @@ def run_task(task_id: str) -> dict:
     except Exception:  # noqa: BLE001
         score = sum(rewards) / max(len(rewards), 1)
 
+    emit_marker(
+        "END",
+        {
+            "task_id": task_id,
+            "session_id": session_id,
+            "score": round(score, 6),
+            "steps": len(rewards),
+            "error": error,
+        },
+    )
     print(f"  final_score={score:.4f}")
     return {
         "mean_reward": round(score, 6),
@@ -1112,6 +1145,17 @@ def main() -> None:
     if CLIENT is None:
         print("LLM disabled (missing/invalid HF_TOKEN or client init failure). Fallback-only mode.")
 
+    emit_marker(
+        "START",
+        {
+            "run_id": f"run-{uuid.uuid4().hex[:8]}",
+            "model": MODEL_NAME,
+            "api_base_url": API_BASE_URL,
+            "server_url": SERVER_URL,
+            "llm_enabled": CLIENT is not None,
+        },
+    )
+
     summary: Dict[str, Any]
     try:
         summary = run_all()
@@ -1128,6 +1172,15 @@ def main() -> None:
         }
 
     write_results(summary)
+
+    emit_marker(
+        "END",
+        {
+            "mean_score": summary["mean_score"],
+            "overall_mean_reward": summary["overall_mean_reward"],
+            "tasks": {k: float(v.get("mean_reward", 0.0)) for k, v in summary.get("tasks", {}).items()},
+        },
+    )
 
     print("\nSummary")
     print(f"  mean_score={summary['mean_score']:.4f}")

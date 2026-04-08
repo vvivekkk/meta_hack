@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -414,7 +414,11 @@ async def health() -> Dict[str, Any]:
 
 
 @app.get("/")
-async def root() -> Dict[str, Any]:
+async def root(request: Request) -> Any:
+  accept = (request.headers.get("accept") or "").lower()
+  if "text/html" in accept and UI_DIR.exists():
+    return RedirectResponse(url="/ui/")
+
     return {
         "status": "ok",
         "message": "Clinical Trial Triage OpenEnv is running.",

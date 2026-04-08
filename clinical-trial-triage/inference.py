@@ -33,9 +33,14 @@ if load_dotenv is not None:
 
 
 # Keep required OpenAI/HF compatibility variables.
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
-MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
+# Optional compatibility with workflows that configure OpenAI API_KEY instead.
+if not HF_TOKEN:
+    HF_TOKEN = os.getenv("API_KEY")
+# Optional variable expected by some OpenEnv helper flows.
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 SERVER_URL = os.getenv("ENV_SERVER_URL") or "http://localhost:8000"
 TEMPERATURE = 0.0
@@ -67,10 +72,10 @@ def emit_marker(marker: str, payload: Dict[str, Any]) -> None:
 
 
 def _make_client() -> Optional[OpenAI]:
-    if not API_KEY:
+    if not HF_TOKEN:
         return None
     try:
-        return OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+        return OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     except Exception:  # noqa: BLE001
         return None
 

@@ -101,10 +101,10 @@ def grade_ae_triage(
 
     return TriageReward(
         total=_clamp(total),
-        severity_accuracy=sev_score,
-        timeline_accuracy=timeline_score,
-        soc_accuracy=soc_score,
-        pt_accuracy=pt_score,
+        severity_accuracy=_clamp(sev_score),
+        timeline_accuracy=_clamp(timeline_score),
+        soc_accuracy=_clamp(soc_score),
+        pt_accuracy=_clamp(pt_score),
     )
 
 
@@ -161,11 +161,11 @@ def grade_protocol_deviation(
 
     return TriageReward(
         total=_clamp(total),
-        deviation_type_accuracy=dev_score,
-        capa_accuracy=capa_score,
-        risk_score_proximity=risk_score,
-        violation_recall=recall,
-        violation_precision=precision,
+        deviation_type_accuracy=_clamp(dev_score),
+        capa_accuracy=_clamp(capa_score),
+        risk_score_proximity=_clamp(risk_score),
+        violation_recall=_clamp(recall),
+        violation_precision=_clamp(precision),
     )
 
 
@@ -433,10 +433,10 @@ def grade_safety_narrative(
 
     return TriageReward(
         total=_clamp(total),
-        narrative_completeness=completeness_score,
-        temporal_coverage=temporal_score,
-        causality_accuracy=causality_score,
-        regulatory_compliance=compliance_score,
+        narrative_completeness=_clamp(completeness_score),
+        temporal_coverage=_clamp(temporal_score),
+        causality_accuracy=_clamp(causality_score),
+        regulatory_compliance=_clamp(compliance_score),
         penalty_applied=penalty_applied,
         penalty_reason=penalty_reason,
     )

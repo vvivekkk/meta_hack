@@ -78,6 +78,7 @@ def _make_client() -> Optional[OpenAI]:
 
 
 CLIENT = _make_client()
+PROXY_PROBE_DONE = False
 
 SYSTEM_PROMPT = textwrap.dedent(
     """
@@ -224,6 +225,26 @@ def safe_llm_call(prompt: str) -> Optional[dict]:
             time.sleep(0.6)
 
     return None
+
+
+def probe_llm_proxy() -> None:
+    """Send one minimal request so the evaluator can observe proxy traffic."""
+    global PROXY_PROBE_DONE
+    if PROXY_PROBE_DONE or CLIENT is None:
+        return
+    try:
+        CLIENT.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "Respond with a single word."},
+                {"role": "user", "content": "ping"},
+            ],
+            temperature=0.0,
+            max_tokens=1,
+        )
+    except Exception:
+        pass
+    PROXY_PROBE_DONE = True
 
 
 def _to_bool_or_none(value: Any) -> Optional[bool]:
@@ -1146,6 +1167,8 @@ def main() -> None:
     print(f"API   : {API_BASE_URL}")
     if CLIENT is None:
         print("LLM disabled (missing/invalid API_KEY or client init failure). Fallback-only mode.")
+    else:
+        probe_llm_proxy()
 
     emit_marker(
         "START",

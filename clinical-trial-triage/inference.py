@@ -230,17 +230,22 @@ def safe_llm_call(prompt: str) -> Optional[dict]:
 def probe_llm_proxy() -> None:
     """Send one minimal request so the evaluator can observe proxy traffic."""
     global PROXY_PROBE_DONE
-    if PROXY_PROBE_DONE or CLIENT is None:
+    if PROXY_PROBE_DONE or not API_BASE_URL or not API_KEY:
         return
     try:
-        CLIENT.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": "Respond with a single word."},
-                {"role": "user", "content": "ping"},
-            ],
-            temperature=0.0,
-            max_tokens=1,
+        requests.post(
+            f"{API_BASE_URL.rstrip('/')}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MODEL_NAME,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+                "temperature": 0.0,
+            },
+            timeout=8,
         )
     except Exception:
         pass

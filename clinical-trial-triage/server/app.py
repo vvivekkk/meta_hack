@@ -150,7 +150,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
     rewards: list[float] = []
     for case in cases:
         result = env.step(action_builder(case))
-        rewards.append(result.reward)
+      rewards.append(_clamp_open_score(float(result.reward)))
         if result.done:
             break
 
@@ -158,7 +158,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
     return {
         "baseline_type": "heuristic",
         "task_id": task_id,
-        "per_step_rewards": rewards,
+        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in rewards],
         "mean_reward": mean_reward,
         "n_steps": len(rewards),
     }

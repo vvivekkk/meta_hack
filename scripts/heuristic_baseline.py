@@ -190,12 +190,12 @@ def run_heuristic_baseline() -> Dict[str, Any]:
     for case in AE_CASES:
         action = _heuristic_ae_triage(case)
         result = env.step(action)
-        ae_rewards.append(result.reward)
+        ae_rewards.append(_clamp_open_score(float(result.reward)))
         if result.done:
             break
 
     results["tasks"][TaskID.ADVERSE_EVENT_TRIAGE] = {
-        "per_step_rewards": ae_rewards,
+        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in ae_rewards],
         "mean_reward": round(_clamp_open_score(sum(ae_rewards) / len(ae_rewards)), 4) if ae_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(ae_rewards),
     }
@@ -206,12 +206,12 @@ def run_heuristic_baseline() -> Dict[str, Any]:
     for case in DEVIATION_CASES:
         action = _heuristic_deviation_audit(case)
         result = env.step(action)
-        dev_rewards.append(result.reward)
+        dev_rewards.append(_clamp_open_score(float(result.reward)))
         if result.done:
             break
 
     results["tasks"][TaskID.PROTOCOL_DEVIATION_AUDIT] = {
-        "per_step_rewards": dev_rewards,
+        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in dev_rewards],
         "mean_reward": round(_clamp_open_score(sum(dev_rewards) / len(dev_rewards)), 4) if dev_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(dev_rewards),
     }
@@ -222,12 +222,12 @@ def run_heuristic_baseline() -> Dict[str, Any]:
     for case in NARRATIVE_CASES:
         action = _heuristic_narrative(case)
         result = env.step(action)
-        nr_rewards.append(result.reward)
+        nr_rewards.append(_clamp_open_score(float(result.reward)))
         if result.done:
             break
 
     results["tasks"][TaskID.SAFETY_NARRATIVE_GENERATION] = {
-        "per_step_rewards": nr_rewards,
+        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in nr_rewards],
         "mean_reward": round(_clamp_open_score(sum(nr_rewards) / len(nr_rewards)), 4) if nr_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(nr_rewards),
     }

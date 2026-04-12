@@ -1088,7 +1088,7 @@ def run_task(task_id: str) -> dict:
             print(f"  {error}")
             break
 
-        reward = float(step_result.get("reward", 0.0))
+        reward = _clamp_open_score(float(step_result.get("reward", SCORE_EPS)))
         rewards.append(reward)
         payload = step_result
         emit_marker(
@@ -1134,7 +1134,7 @@ def run_task(task_id: str) -> dict:
     return {
         "mean_reward": round(score, 6),
         "n_steps": len(rewards),
-        "per_step_rewards": rewards,
+        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in rewards],
         "error": error,
     }
 

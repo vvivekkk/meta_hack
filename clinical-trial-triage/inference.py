@@ -1067,7 +1067,7 @@ def run_task(task_id: str) -> dict:
         error = f"reset_failed: {exc}"
         print(f"  {error}")
         return {
-            "mean_reward": _clamp_open_score(0.0),
+            "score": _clamp_open_score(0.0),
             "error": error,
         }
 
@@ -1130,7 +1130,7 @@ def run_task(task_id: str) -> dict:
     )
     print(f"  final_score={score:.4f}")
     return {
-        "mean_reward": round(score, 6),
+        "score": round(score, 6),
         "error": error,
     }
 
@@ -1143,12 +1143,22 @@ def run_all() -> Dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             # Hard fail-safe: one task failure should never crash whole script.
             task_results[task_id] = {
-                "mean_reward": _clamp_open_score(0.0),
+                "score": _clamp_open_score(0.0),
                 "error": f"task_runner_exception: {exc}",
             }
 
-    means = [_clamp_open_score(float(item.get("mean_reward", SCORE_EPS))) for item in task_results.values()]
-    mean_score = round(_clamp_open_score(sum(means) / max(len(means), 1)), 4)
+    task_scores = {
+        task_id: _clamp_open_score(float(item.get("score", SCORE_EPS)))
+        for task_id, item in task_results.items()
+    }
+    mean_score = round(_clamp_open_score(sum(task_scores.values()) / max(len(task_scores), 1)), 4)
+    task_details = {
+        task_id: {
+            "score": round(score, 6),
+            "error": task_results.get(task_id, {}).get("error"),
+        }
+        for task_id, score in task_scores.items()
+    }
 
     return {
         "model": MODEL_NAME,
@@ -1156,7 +1166,8 @@ def run_all() -> Dict[str, Any]:
         "llm_enabled": CLIENT is not None,
         "mean_score": mean_score,
         "overall_mean_reward": mean_score,
-        "tasks": task_results,
+        "tasks": {task_id: round(score, 6) for task_id, score in task_scores.items()},
+        "task_details": task_details,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -1198,7 +1209,8 @@ def main() -> None:
             "llm_enabled": False,
             "mean_score": _clamp_open_score(0.0),
             "overall_mean_reward": _clamp_open_score(0.0),
-            "tasks": {task_id: {"mean_reward": _clamp_open_score(0.0), "error": str(exc)} for task_id in TASK_IDS},
+            "tasks": {task_id: _clamp_open_score(0.0) for task_id in TASK_IDS},
+            "task_details": {task_id: {"score": _clamp_open_score(0.0), "error": str(exc)} for task_id in TASK_IDS},
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
@@ -1209,15 +1221,15 @@ def main() -> None:
         {
             "mean_score": summary["mean_score"],
             "overall_mean_reward": summary["overall_mean_reward"],
-            "tasks": {k: _clamp_open_score(float(v.get("mean_reward", SCORE_EPS))) for k, v in summary.get("tasks", {}).items()},
+            "tasks": {k: _clamp_open_score(float(v)) for k, v in summary.get("tasks", {}).items()},
         },
     )
 
     print("\nSummary")
     print(f"  mean_score={summary['mean_score']:.4f}")
     print(f"  overall_mean_reward={summary['overall_mean_reward']:.4f}")
-    for task_id, task_result in summary["tasks"].items():
-        print(f"  {task_id}: {_clamp_open_score(float(task_result.get('mean_reward', SCORE_EPS))):.4f}")
+    for task_id, task_score in summary["tasks"].items():
+        print(f"  {task_id}: {_clamp_open_score(float(task_score)):.4f}")
 
 
 if __name__ == "__main__":

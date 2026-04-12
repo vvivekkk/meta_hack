@@ -36,7 +36,7 @@ def _fuzzy_match(candidate: str, accepted: List[str]) -> bool:
     return False
 
 
-def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
+def _clamp(value: float, lo: float = 1e-3, hi: float = 1.0 - 1e-3) -> float:
     return max(lo, min(hi, value))
 
 

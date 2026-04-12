@@ -46,6 +46,8 @@ TASK_CASES: Dict[str, list] = {
     TaskID.SAFETY_NARRATIVE_GENERATION: NARRATIVE_CASES,
 }
 
+_SCORE_EPS = 1e-3
+
 
 _sessions: Dict[str, "ClinicalTrialEnvironment"] = {}
 _sessions_lock = threading.Lock()
@@ -342,4 +344,4 @@ class ClinicalTrialEnvironment:
             shaped -= 0.05
         self._last_action_signature = action_signature
 
-        return round(min(1.0, max(0.0, shaped)), 6)
+        return round(min(1.0 - _SCORE_EPS, max(_SCORE_EPS, shaped)), 6)

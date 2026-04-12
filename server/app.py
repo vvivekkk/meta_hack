@@ -101,7 +101,7 @@ class InferenceStepRequest(BaseModel):
 
 
 _leaderboard: list[Dict[str, Any]] = []
-_SCORE_EPS = 1e-6
+_SCORE_EPS = 1e-3
 
 
 def _clamp_open_score(value: float) -> float:
@@ -154,7 +154,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
         if result.done:
             break
 
-    mean_reward = round(_clamp_open_score(sum(rewards) / len(rewards)), 4) if rewards else round(_SCORE_EPS, 4)
+    mean_reward = round(_clamp_open_score(sum(rewards) / len(rewards)), 4) if rewards else _clamp_open_score(_SCORE_EPS)
     return {
         "baseline_type": "heuristic",
         "task_id": task_id,

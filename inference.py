@@ -43,6 +43,7 @@ SERVER_URL = os.getenv("ENV_SERVER_URL") or "http://localhost:8000"
 TEMPERATURE = 0.0
 MAX_TOKENS = 1000
 OUTPUT_FILE = Path("outputs/baseline_results.json")
+SCORE_EPS = 1e-4
 
 TASK_IDS = [
     "adverse_event_triage",
@@ -66,6 +67,10 @@ VALID_CAUSALITY = {
 def emit_marker(marker: str, payload: Dict[str, Any]) -> None:
     """Emit machine-readable markers expected by submission evaluators."""
     print(f"[{marker}] {json.dumps(payload, ensure_ascii=True, separators=(',', ':'))}", flush=True)
+
+
+def _clamp_open_score(value: float) -> float:
+    return max(SCORE_EPS, min(1.0 - SCORE_EPS, float(value)))
 
 
 def _make_client() -> Optional[OpenAI]:
@@ -1062,7 +1067,7 @@ def run_task(task_id: str) -> dict:
         error = f"reset_failed: {exc}"
         print(f"  {error}")
         return {
-            "mean_reward": 0.0,
+            "mean_reward": _clamp_open_score(0.0),
             "n_steps": 0,
             "per_step_rewards": [],
             "error": error,
@@ -1101,7 +1106,7 @@ def run_task(task_id: str) -> dict:
         if bool(step_result.get("done", False)):
             break
 
-    score = 0.0
+    score = SCORE_EPS
     try:
         grader = env_grader(session_id)
         score = float(
@@ -1112,6 +1117,8 @@ def run_task(task_id: str) -> dict:
         )
     except Exception:  # noqa: BLE001
         score = sum(rewards) / max(len(rewards), 1)
+
+    score = _clamp_open_score(score)
 
     emit_marker(
         "END",
@@ -1140,14 +1147,14 @@ def run_all() -> Dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             # Hard fail-safe: one task failure should never crash whole script.
             task_results[task_id] = {
-                "mean_reward": 0.0,
+                "mean_reward": _clamp_open_score(0.0),
                 "n_steps": 0,
                 "per_step_rewards": [],
                 "error": f"task_runner_exception: {exc}",
             }
 
-    means = [float(item.get("mean_reward", 0.0)) for item in task_results.values()]
-    mean_score = round(sum(means) / max(len(means), 1), 4)
+    means = [_clamp_open_score(float(item.get("mean_reward", SCORE_EPS))) for item in task_results.values()]
+    mean_score = round(_clamp_open_score(sum(means) / max(len(means), 1)), 4)
 
     return {
         "model": MODEL_NAME,
@@ -1195,9 +1202,9 @@ def main() -> None:
             "model": MODEL_NAME,
             "api_base_url": API_BASE_URL,
             "llm_enabled": False,
-            "mean_score": 0.0,
-            "overall_mean_reward": 0.0,
-            "tasks": {task_id: {"mean_reward": 0.0, "n_steps": 0, "per_step_rewards": [], "error": str(exc)} for task_id in TASK_IDS},
+            "mean_score": _clamp_open_score(0.0),
+            "overall_mean_reward": _clamp_open_score(0.0),
+            "tasks": {task_id: {"mean_reward": _clamp_open_score(0.0), "n_steps": 0, "per_step_rewards": [], "error": str(exc)} for task_id in TASK_IDS},
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
@@ -1208,7 +1215,7 @@ def main() -> None:
         {
             "mean_score": summary["mean_score"],
             "overall_mean_reward": summary["overall_mean_reward"],
-            "tasks": {k: float(v.get("mean_reward", 0.0)) for k, v in summary.get("tasks", {}).items()},
+            "tasks": {k: _clamp_open_score(float(v.get("mean_reward", SCORE_EPS))) for k, v in summary.get("tasks", {}).items()},
         },
     )
 
@@ -1216,7 +1223,7 @@ def main() -> None:
     print(f"  mean_score={summary['mean_score']:.4f}")
     print(f"  overall_mean_reward={summary['overall_mean_reward']:.4f}")
     for task_id, task_result in summary["tasks"].items():
-        print(f"  {task_id}: {float(task_result.get('mean_reward', 0.0)):.4f}")
+        print(f"  {task_id}: {_clamp_open_score(float(task_result.get('mean_reward', SCORE_EPS))):.4f}")
 
 
 if __name__ == "__main__":

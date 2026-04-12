@@ -1068,8 +1068,6 @@ def run_task(task_id: str) -> dict:
         print(f"  {error}")
         return {
             "mean_reward": _clamp_open_score(0.0),
-            "n_steps": 0,
-            "per_step_rewards": [],
             "error": error,
         }
 
@@ -1133,8 +1131,6 @@ def run_task(task_id: str) -> dict:
     print(f"  final_score={score:.4f}")
     return {
         "mean_reward": round(score, 6),
-        "n_steps": len(rewards),
-        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in rewards],
         "error": error,
     }
 
@@ -1148,8 +1144,6 @@ def run_all() -> Dict[str, Any]:
             # Hard fail-safe: one task failure should never crash whole script.
             task_results[task_id] = {
                 "mean_reward": _clamp_open_score(0.0),
-                "n_steps": 0,
-                "per_step_rewards": [],
                 "error": f"task_runner_exception: {exc}",
             }
 
@@ -1204,7 +1198,7 @@ def main() -> None:
             "llm_enabled": False,
             "mean_score": _clamp_open_score(0.0),
             "overall_mean_reward": _clamp_open_score(0.0),
-            "tasks": {task_id: {"mean_reward": _clamp_open_score(0.0), "n_steps": 0, "per_step_rewards": [], "error": str(exc)} for task_id in TASK_IDS},
+            "tasks": {task_id: {"mean_reward": _clamp_open_score(0.0), "error": str(exc)} for task_id in TASK_IDS},
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 

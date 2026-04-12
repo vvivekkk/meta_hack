@@ -22,6 +22,13 @@ from server.environment import ClinicalTrialEnvironment
 from tasks.case_bank import AE_CASES, DEVIATION_CASES, NARRATIVE_CASES
 
 
+_SCORE_EPS = 1e-3
+
+
+def _clamp_open_score(value: float) -> float:
+    return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+
+
 # ─────────────────────────────────────────
 # HEURISTIC AGENTS (rule-based)
 # ─────────────────────────────────────────
@@ -189,7 +196,7 @@ def run_heuristic_baseline() -> Dict[str, Any]:
 
     results["tasks"][TaskID.ADVERSE_EVENT_TRIAGE] = {
         "per_step_rewards": ae_rewards,
-        "mean_reward": round(sum(ae_rewards) / len(ae_rewards), 4) if ae_rewards else 0.0,
+        "mean_reward": round(_clamp_open_score(sum(ae_rewards) / len(ae_rewards)), 4) if ae_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(ae_rewards),
     }
 
@@ -205,7 +212,7 @@ def run_heuristic_baseline() -> Dict[str, Any]:
 
     results["tasks"][TaskID.PROTOCOL_DEVIATION_AUDIT] = {
         "per_step_rewards": dev_rewards,
-        "mean_reward": round(sum(dev_rewards) / len(dev_rewards), 4) if dev_rewards else 0.0,
+        "mean_reward": round(_clamp_open_score(sum(dev_rewards) / len(dev_rewards)), 4) if dev_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(dev_rewards),
     }
 
@@ -221,12 +228,12 @@ def run_heuristic_baseline() -> Dict[str, Any]:
 
     results["tasks"][TaskID.SAFETY_NARRATIVE_GENERATION] = {
         "per_step_rewards": nr_rewards,
-        "mean_reward": round(sum(nr_rewards) / len(nr_rewards), 4) if nr_rewards else 0.0,
+        "mean_reward": round(_clamp_open_score(sum(nr_rewards) / len(nr_rewards)), 4) if nr_rewards else _clamp_open_score(_SCORE_EPS),
         "n_steps": len(nr_rewards),
     }
 
     all_means = [v["mean_reward"] for v in results["tasks"].values()]
-    results["overall_mean_reward"] = round(sum(all_means) / len(all_means), 4)
+    results["overall_mean_reward"] = round(_clamp_open_score(sum(all_means) / len(all_means)), 4)
 
     return results
 

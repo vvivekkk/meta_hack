@@ -114,7 +114,7 @@ def _safe_session_id(raw_session_id: Optional[str]) -> str:
 
 
 def _record_episode(session_id: str, task_id: str, normalized_score: float) -> None:
-  score = _clamp_open_score(normalized_score)
+    score = _clamp_open_score(normalized_score)
     item = {
         "session_id": session_id,
         "mean_score": round(score, 4),

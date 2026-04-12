@@ -268,14 +268,14 @@ class ClinicalTrialEnvironment:
         """Route grading to the correct task grader."""
         cases = TASK_CASES[self._current_task]
         if self._case_index >= len(cases):
-            return TriageReward(total=0.0)
+            return TriageReward(total=_SCORE_EPS)
 
         case = cases[self._case_index]
 
         if self._current_task == TaskID.ADVERSE_EVENT_TRIAGE:
             if action.ae_triage is None:
                 return TriageReward(
-                    total=0.0, penalty_applied=True,
+                    total=_SCORE_EPS, penalty_applied=True,
                     penalty_reason="No ae_triage action provided for adverse_event_triage task."
                 )
             return grade_ae_triage(action.ae_triage, case)
@@ -283,7 +283,7 @@ class ClinicalTrialEnvironment:
         elif self._current_task == TaskID.PROTOCOL_DEVIATION_AUDIT:
             if action.deviation_audit is None:
                 return TriageReward(
-                    total=0.0, penalty_applied=True,
+                    total=_SCORE_EPS, penalty_applied=True,
                     penalty_reason="No deviation_audit action provided for protocol_deviation_audit task."
                 )
             return grade_protocol_deviation(action.deviation_audit, case)
@@ -291,12 +291,12 @@ class ClinicalTrialEnvironment:
         elif self._current_task == TaskID.SAFETY_NARRATIVE_GENERATION:
             if action.safety_narrative is None:
                 return TriageReward(
-                    total=0.0, penalty_applied=True,
+                    total=_SCORE_EPS, penalty_applied=True,
                     penalty_reason="No safety_narrative action provided for safety_narrative_generation task."
                 )
             return grade_safety_narrative(action.safety_narrative, case)
 
-        return TriageReward(total=0.0)
+        return TriageReward(total=_SCORE_EPS)
 
     def _shape_reward(
         self,

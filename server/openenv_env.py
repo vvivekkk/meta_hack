@@ -30,6 +30,13 @@ from models import (
 from server.environment import ClinicalTrialEnvironment
 
 
+_SCORE_EPS = 1e-3
+
+
+def _clamp_open_score(value: float) -> float:
+    return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+
+
 class OpenEnvTriageAction(Action):
     """OpenEnv action wrapper for the clinical triage tasks."""
 
@@ -177,13 +184,16 @@ class ClinicalTrialOpenEnv(
     @property
     def state(self) -> OpenEnvTriageState:
         state = self._core.state()
+        normalized_cumulative = _clamp_open_score(
+            state.cumulative_reward / state.step_count if state.step_count > 0 else _SCORE_EPS
+        )
         return OpenEnvTriageState(
             episode_id=state.episode_id,
             step_count=state.step_count,
             task_id=TaskID(state.task_id),
             max_steps=state.max_steps,
             done=state.done,
-            cumulative_reward=state.cumulative_reward,
+            cumulative_reward=normalized_cumulative,
             current_case_id=state.current_case_id,
         )
 

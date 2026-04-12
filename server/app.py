@@ -209,7 +209,16 @@ async def step(
                 state.task_id,
                 float(normalized),
             )
-        return result.model_dump()
+        payload = result.model_dump()
+        info = payload.get("info")
+        if isinstance(info, dict):
+          session_state = env.state()
+          info["cumulative_reward"] = _clamp_open_score(
+            session_state.cumulative_reward / session_state.step_count
+            if session_state.step_count > 0
+            else _SCORE_EPS
+          )
+        return payload
     except RuntimeError as exc:
         logger.warning("step runtime error: session_id=%s detail=%s", session_id, str(exc))
         raise HTTPException(status_code=400, detail=str(exc))
@@ -220,12 +229,16 @@ async def step(
 
 @app.get("/state")
 async def state(x_session_id: Optional[str] = Header(default="default")) -> Dict[str, Any]:
-    env = get_or_create_session(_safe_session_id(x_session_id))
-    try:
-        s = env.state()
-        return s.model_dump()
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+  env = get_or_create_session(_safe_session_id(x_session_id))
+  try:
+    s = env.state()
+    payload = s.model_dump()
+    payload["cumulative_reward"] = _clamp_open_score(
+      s.cumulative_reward / s.step_count if s.step_count > 0 else _SCORE_EPS
+    )
+    return payload
+  except RuntimeError as exc:
+    raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/tasks")
@@ -318,11 +331,10 @@ async def grader(x_session_id: Optional[str] = Header(default="default")) -> Dic
             "episode_id": s.episode_id,
             "task_id": s.task_id,
             "done": s.done,
-            "cumulative_reward": s.cumulative_reward,
+          "cumulative_reward": normalized_score,
             "step_count": s.step_count,
             "max_steps": s.max_steps,
             "normalized_score": normalized_score,
-            "actions": s.actions_taken,
         }
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

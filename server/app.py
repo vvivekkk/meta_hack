@@ -101,6 +101,11 @@ class InferenceStepRequest(BaseModel):
 
 
 _leaderboard: list[Dict[str, Any]] = []
+_SCORE_EPS = 1e-6
+
+
+def _clamp_open_score(value: float) -> float:
+  return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
 
 
 def _safe_session_id(raw_session_id: Optional[str]) -> str:
@@ -109,7 +114,7 @@ def _safe_session_id(raw_session_id: Optional[str]) -> str:
 
 
 def _record_episode(session_id: str, task_id: str, normalized_score: float) -> None:
-    score = max(0.0, min(1.0, float(normalized_score)))
+  score = _clamp_open_score(normalized_score)
     item = {
         "session_id": session_id,
         "mean_score": round(score, 4),
@@ -149,7 +154,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
         if result.done:
             break
 
-    mean_reward = round(sum(rewards) / len(rewards), 4) if rewards else 0.0
+    mean_reward = round(_clamp_open_score(sum(rewards) / len(rewards)), 4) if rewards else round(_SCORE_EPS, 4)
     return {
         "baseline_type": "heuristic",
         "task_id": task_id,
@@ -306,7 +311,9 @@ async def grader(x_session_id: Optional[str] = Header(default="default")) -> Dic
                 ),
             )
 
-        normalized_score = s.cumulative_reward / s.step_count if s.step_count > 0 else 0.0
+        normalized_score = _clamp_open_score(
+          s.cumulative_reward / s.step_count if s.step_count > 0 else _SCORE_EPS
+        )
         return {
             "episode_id": s.episode_id,
             "task_id": s.task_id,

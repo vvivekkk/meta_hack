@@ -195,9 +195,7 @@ def run_heuristic_baseline() -> Dict[str, Any]:
             break
 
     results["tasks"][TaskID.ADVERSE_EVENT_TRIAGE] = {
-        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in ae_rewards],
         "mean_reward": round(_clamp_open_score(sum(ae_rewards) / len(ae_rewards)), 4) if ae_rewards else _clamp_open_score(_SCORE_EPS),
-        "n_steps": len(ae_rewards),
     }
 
     # Task 2: Protocol Deviation Audit
@@ -211,9 +209,7 @@ def run_heuristic_baseline() -> Dict[str, Any]:
             break
 
     results["tasks"][TaskID.PROTOCOL_DEVIATION_AUDIT] = {
-        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in dev_rewards],
         "mean_reward": round(_clamp_open_score(sum(dev_rewards) / len(dev_rewards)), 4) if dev_rewards else _clamp_open_score(_SCORE_EPS),
-        "n_steps": len(dev_rewards),
     }
 
     # Task 3: Safety Narrative
@@ -227,9 +223,7 @@ def run_heuristic_baseline() -> Dict[str, Any]:
             break
 
     results["tasks"][TaskID.SAFETY_NARRATIVE_GENERATION] = {
-        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in nr_rewards],
         "mean_reward": round(_clamp_open_score(sum(nr_rewards) / len(nr_rewards)), 4) if nr_rewards else _clamp_open_score(_SCORE_EPS),
-        "n_steps": len(nr_rewards),
     }
 
     all_means = [v["mean_reward"] for v in results["tasks"].values()]

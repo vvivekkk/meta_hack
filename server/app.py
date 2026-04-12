@@ -158,9 +158,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
     return {
         "baseline_type": "heuristic",
         "task_id": task_id,
-        "per_step_rewards": [round(_clamp_open_score(r), 6) for r in rewards],
         "mean_reward": mean_reward,
-        "n_steps": len(rewards),
     }
 
 
@@ -331,9 +329,6 @@ async def grader(x_session_id: Optional[str] = Header(default="default")) -> Dic
             "episode_id": s.episode_id,
             "task_id": s.task_id,
             "done": s.done,
-          "cumulative_reward": normalized_score,
-            "step_count": s.step_count,
-            "max_steps": s.max_steps,
             "normalized_score": normalized_score,
         }
     except RuntimeError as exc:
@@ -343,13 +338,31 @@ async def grader(x_session_id: Optional[str] = Header(default="default")) -> Dic
 @app.post("/baseline")
 async def baseline(request: Optional[BaselineRequest] = None) -> Dict[str, Any]:
     if request and request.task_id:
-        return _run_single_task_baseline(task_id=request.task_id)
+        single = _run_single_task_baseline(task_id=request.task_id)
+        return {
+            "baseline_type": "heuristic",
+            "task_id": request.task_id,
+            "score": _clamp_open_score(float(single.get("mean_reward", _SCORE_EPS))),
+        }
 
     from scripts.heuristic_baseline import run_heuristic_baseline
 
     results = run_heuristic_baseline()
-    results["inference_script"] = "scripts/heuristic_baseline.py"
-    return results
+    task_scores = {
+        task_id: _clamp_open_score(float(payload.get("mean_reward", _SCORE_EPS)))
+        for task_id, payload in results.get("tasks", {}).items()
+    }
+    if task_scores:
+        overall = _clamp_open_score(sum(task_scores.values()) / len(task_scores))
+    else:
+        overall = _clamp_open_score(_SCORE_EPS)
+    return {
+        "baseline_type": "heuristic",
+        "inference_script": "scripts/heuristic_baseline.py",
+        "mean_score": round(overall, 4),
+        "overall_mean_reward": round(overall, 4),
+        "tasks": task_scores,
+    }
 
 
 @app.post("/infer/step")

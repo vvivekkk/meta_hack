@@ -43,7 +43,7 @@ SERVER_URL = os.getenv("ENV_SERVER_URL") or "http://localhost:8000"
 TEMPERATURE = 0.0
 MAX_TOKENS = 1000
 OUTPUT_FILE = Path("outputs/baseline_results.json")
-SCORE_EPS = 1e-4
+SCORE_EPS = 1e-3
 
 TASK_IDS = [
     "adverse_event_triage",

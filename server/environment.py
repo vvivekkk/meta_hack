@@ -46,7 +46,7 @@ TASK_CASES: Dict[str, list] = {
     TaskID.SAFETY_NARRATIVE_GENERATION: NARRATIVE_CASES,
 }
 
-_SCORE_EPS = 1e-6
+_SCORE_EPS = 1e-3
 
 
 _sessions: Dict[str, "ClinicalTrialEnvironment"] = {}

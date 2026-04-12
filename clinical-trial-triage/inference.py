@@ -33,12 +33,9 @@ if load_dotenv is not None:
 
 
 # Keep required OpenAI/HF compatibility variables.
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN")
-# Optional compatibility with workflows that configure OpenAI API_KEY instead.
-if not HF_TOKEN:
-    HF_TOKEN = os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN", "")
+MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
 # Optional variable expected by some OpenEnv helper flows.
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
@@ -72,10 +69,10 @@ def emit_marker(marker: str, payload: Dict[str, Any]) -> None:
 
 
 def _make_client() -> Optional[OpenAI]:
-    if not HF_TOKEN:
+    if not API_KEY:
         return None
     try:
-        return OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+        return OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     except Exception:  # noqa: BLE001
         return None
 
@@ -1148,7 +1145,7 @@ def main() -> None:
     print(f"Server: {SERVER_URL}")
     print(f"API   : {API_BASE_URL}")
     if CLIENT is None:
-        print("LLM disabled (missing/invalid HF_TOKEN or client init failure). Fallback-only mode.")
+        print("LLM disabled (missing/invalid API_KEY or client init failure). Fallback-only mode.")
 
     emit_marker(
         "START",

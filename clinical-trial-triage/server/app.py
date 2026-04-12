@@ -150,7 +150,7 @@ def _run_single_task_baseline(task_id: str) -> Dict[str, Any]:
     rewards: list[float] = []
     for case in cases:
         result = env.step(action_builder(case))
-      rewards.append(_clamp_open_score(float(result.reward)))
+        rewards.append(_clamp_open_score(float(result.reward)))
         if result.done:
             break
 
